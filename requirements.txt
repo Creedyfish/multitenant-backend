@@ -1,0 +1,16 @@
+fastapi
+redis
+types-redis
+uvicorn
+python-multipart
+pytest
+httpx
+pydantic-settings
+PyJWT
+pwdlib
+pyjwt
+pwdlib[argon2]
+pydantic-settings
+sqlalchemy
+alembic
+psycopg2-binary
