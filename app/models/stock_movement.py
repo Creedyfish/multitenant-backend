@@ -1,8 +1,9 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
+import uuid
+from datetime import datetime
+
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import text
+from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -12,29 +13,24 @@ from .enums import StockMovementTypeEnum
 class StockMovement(Base):
     __tablename__ = "stock_movements"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default="gen_random_uuid()"
     )
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
-    warehouse_id = Column(
-        UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False
-    )
-    type = Column(SQLEnum(StockMovementTypeEnum), nullable=False)
-    quantity = Column(Integer, nullable=False)
-    reference = Column(String, nullable=True)
-    notes = Column(Text, nullable=True)
-    created_by = Column(UUID(as_uuid=True), nullable=False)  # User ID
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
-    )
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"))
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("warehouses.id"))
+    type: Mapped[StockMovementTypeEnum] = mapped_column(SQLEnum(StockMovementTypeEnum))
+    quantity: Mapped[int]
+    reference: Mapped[str | None] = mapped_column(default=None)
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
+    created_by: Mapped[uuid.UUID]  # User ID
+    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
 
     # Relationships
     organization = relationship("Organization", back_populates="stock_movements")
     product = relationship("Product", back_populates="stock_movements")
     warehouse = relationship("Warehouse", back_populates="stock_movements")
 
-    # Indexes
     __table_args__ = (
         Index(
             "idx_stock_movement_org_product_warehouse",
