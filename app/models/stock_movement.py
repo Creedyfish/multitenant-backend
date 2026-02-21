@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Index, Text
@@ -8,6 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
 from .enums import StockMovementTypeEnum
+
+if TYPE_CHECKING:
+    from app.models.organization import Organization, Product, Warehouse
 
 
 class StockMovement(Base):
@@ -23,13 +27,14 @@ class StockMovement(Base):
     quantity: Mapped[int]
     reference: Mapped[str | None] = mapped_column(default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
-    created_by: Mapped[uuid.UUID]  # User ID
+    created_by: Mapped[uuid.UUID]
     created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
 
-    # Relationships
-    organization = relationship("Organization", back_populates="stock_movements")
-    product = relationship("Product", back_populates="stock_movements")
-    warehouse = relationship("Warehouse", back_populates="stock_movements")
+    organization: Mapped["Organization"] = relationship(
+        back_populates="stock_movements"
+    )
+    product: Mapped["Product"] = relationship(back_populates="stock_movements")
+    warehouse: Mapped["Warehouse"] = relationship(back_populates="stock_movements")
 
     __table_args__ = (
         Index(

@@ -1,11 +1,15 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models import Organization, StockMovement
 
 
 class Product(Base):
@@ -25,9 +29,10 @@ class Product(Base):
         server_default="NOW()", onupdate=func.now()
     )
 
-    # Relationships
-    organization = relationship("Organization", back_populates="products")
-    stock_movements = relationship("StockMovement", back_populates="product")
+    organization: Mapped["Organization"] = relationship(back_populates="products")
+    stock_movements: Mapped[list["StockMovement"]] = relationship(
+        back_populates="product"
+    )
 
     __table_args__ = (
         Index("idx_product_org_sku", "org_id", "sku", unique=True),

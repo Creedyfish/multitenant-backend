@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Index, Text
@@ -11,6 +12,9 @@ from sqlalchemy.types import Numeric
 from app.db.database import Base
 
 from .enums import PurchaseRequestStatusEnum
+
+if TYPE_CHECKING:
+    from app.models import Organization, Product, Supplier
 
 
 class PurchaseRequest(Base):
@@ -24,10 +28,10 @@ class PurchaseRequest(Base):
     status: Mapped[PurchaseRequestStatusEnum] = mapped_column(
         SQLEnum(PurchaseRequestStatusEnum), default=PurchaseRequestStatusEnum.DRAFT
     )
-    created_by: Mapped[uuid.UUID]  # User ID
-    approved_by: Mapped[uuid.UUID | None]  # User ID
+    created_by: Mapped[uuid.UUID]
+    approved_by: Mapped[uuid.UUID | None]
     approved_at: Mapped[datetime | None]
-    rejected_by: Mapped[uuid.UUID | None]  # User ID
+    rejected_by: Mapped[uuid.UUID | None]
     rejected_at: Mapped[datetime | None]
     rejection_reason: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
@@ -36,9 +40,10 @@ class PurchaseRequest(Base):
         server_default="NOW()", onupdate=func.now()
     )
 
-    # Relationships
-    organization = relationship("Organization", back_populates="purchase_requests")
-    items = relationship("PurchaseRequestItem", back_populates="request")
+    organization: Mapped["Organization"] = relationship(
+        back_populates="purchase_requests"
+    )
+    items: Mapped[list["PurchaseRequestItem"]] = relationship(back_populates="request")
 
     __table_args__ = (
         Index(
@@ -64,7 +69,8 @@ class PurchaseRequestItem(Base):
         ForeignKey("suppliers.id"), default=None
     )
 
-    # Relationships
-    request = relationship("PurchaseRequest", back_populates="items")
+    request: Mapped["PurchaseRequest"] = relationship(back_populates="items")
+    product: Mapped["Product"] = relationship()
+    supplier: Mapped["Supplier | None"] = relationship()
 
     __table_args__ = (Index("idx_purchase_request_item_request", "request_id"),)

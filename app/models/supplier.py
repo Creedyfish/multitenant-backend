@@ -1,10 +1,14 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models import Organization
 
 
 class Supplier(Base):
@@ -20,7 +24,6 @@ class Supplier(Base):
     address: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
 
-    # Relationships
-    organization = relationship("Organization", back_populates="suppliers")
+    organization: Mapped["Organization"] = relationship(back_populates="suppliers")
 
     __table_args__ = (Index("idx_supplier_org_id", "org_id"),)
