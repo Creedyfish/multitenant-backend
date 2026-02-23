@@ -73,7 +73,9 @@ def login(db: DB, username: str, password: str, subdomain: str):
 
     access_token = create_access_token(
         data={
+            "org_id": str(user.org_id),
             "sub": user.email,
+            "role": user.role.value,
             "org": user.organization.name,
             "subdomain": user.organization.subdomain,
         },
@@ -81,7 +83,9 @@ def login(db: DB, username: str, password: str, subdomain: str):
     refresh_token_expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     refresh_token = create_refresh_token(
         data={
+            "org_id": str(user.org_id),
             "sub": user.email,
+            "role": user.role.value,
             "org": user.organization.name,
             "subdomain": user.organization.subdomain,
         },
@@ -106,7 +110,8 @@ def refresh(db: DB, refresh_token: str):
     user_email = payload.get("sub")
     org_name = payload.get("org")
     org_subdomain = payload.get("subdomain")
-
+    org_id = payload.get("org_id")
+    role = payload.get("role")
     # 2. get user
     if not user_email or not isinstance(user_email, str):
         raise HTTPException(status_code=401, detail="Invalid token claims")
@@ -124,6 +129,12 @@ def refresh(db: DB, refresh_token: str):
 
     # 4. issue new access token
     access_token = create_access_token(
-        data={"sub": user_email, "org": org_name, "subdomain": org_subdomain}
+        data={
+            "sub": user_email,
+            "org_id": org_id,
+            "role": role,
+            "org": org_name,
+            "subdomain": org_subdomain,
+        }
     )
     return access_token

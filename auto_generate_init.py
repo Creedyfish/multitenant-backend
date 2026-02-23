@@ -7,7 +7,7 @@ BASE_DIR = "app"
 SKIP_ROOT = True
 
 # Specify which top-level variables/aliases to include
-INCLUDE_VARIABLES = {"DB"}  # add other aliases you want exposed
+INCLUDE_VARIABLES = {"DB", "OrgID"}  # add other aliases you want exposed
 
 
 # --- Helper function ---
