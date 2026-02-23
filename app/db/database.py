@@ -1,8 +1,10 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from typing import Annotated
 
-from app.core.config import settings
+from fastapi import Depends
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+from app.core import settings
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -11,7 +13,10 @@ engine = create_engine(
     max_overflow=20,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 # Dependency
@@ -21,3 +26,6 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+DB = Annotated[Session, Depends(get_db)]

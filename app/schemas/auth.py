@@ -7,4 +7,11 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: str | None = None
+    email: str | None = None
+
+
+class RegisterUser(BaseModel):
+    email: str
+    password: str
+    org_name: str
+    org_subdomain: str

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, Index, String
@@ -8,6 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
 from .enums import RoleEnum
+
+if TYPE_CHECKING:
+    from app.models.organization import Organization
 
 
 class User(Base):
@@ -22,7 +26,7 @@ class User(Base):
     role: Mapped[RoleEnum] = mapped_column(SQLEnum(RoleEnum), default=RoleEnum.STAFF)
     created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
 
-    organization = relationship("Organization", back_populates="users")
+    organization: Mapped["Organization"] = relationship(back_populates="users")
 
     __table_args__ = (
         Index("idx_user_org_email", "org_id", "email", unique=True),
