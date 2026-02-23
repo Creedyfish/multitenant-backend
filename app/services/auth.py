@@ -53,8 +53,8 @@ def register_organization(payload: RegisterUser, db: DB):
         raise HTTPException(status_code=500, detail="Registration failed")
 
 
-def authenticate_user(db: DB, username: str, password: str):
-    user = get_user(db, username)
+def authenticate_user(db: DB, username: str, password: str, subdomain: str):
+    user = get_user(db, username, subdomain)
     if not user:
         return False
     if not verify_password(password, user.password_hash):
@@ -62,8 +62,8 @@ def authenticate_user(db: DB, username: str, password: str):
     return user
 
 
-def login(db: DB, username: str, password: str):
-    user = authenticate_user(db, username, password)
+def login(db: DB, username: str, password: str, subdomain: str):
+    user = authenticate_user(db, username, password, subdomain)  # pass subdomain
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -6,12 +6,20 @@ from sqlalchemy.orm import joinedload
 
 from app.db import DB
 from app.models import RoleEnum, User
+from app.models.organization import Organization
 
 
-def get_user(db: DB, email: str) -> User | None:
-    return db.execute(
-        select(User).options(joinedload(User.organization)).where(User.email == email)
-    ).scalar_one_or_none()
+def get_user(db: DB, email: str, subdomain: str | None = None) -> User | None:
+    query = (
+        select(User)
+        .options(joinedload(User.organization))
+        .join(User.organization)
+        .where(User.email == email)
+    )
+    if subdomain:
+        query = query.where(Organization.subdomain == subdomain)
+
+    return db.execute(query).scalar_one_or_none()
 
 
 def create_user(
