@@ -1,7 +1,8 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import text
+import uuid
+from datetime import datetime
+
+from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -9,20 +10,17 @@ from app.db.database import Base
 class Supplier(Base):
     __tablename__ = "suppliers"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default="gen_random_uuid()"
     )
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
-    name = Column(String, nullable=False)
-    contact_email = Column(String, nullable=True)
-    contact_phone = Column(String, nullable=True)
-    address = Column(Text, nullable=True)
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
-    )
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    name: Mapped[str]
+    contact_email: Mapped[str | None] = mapped_column(default=None)
+    contact_phone: Mapped[str | None] = mapped_column(default=None)
+    address: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
 
     # Relationships
     organization = relationship("Organization", back_populates="suppliers")
 
-    # Indexes
     __table_args__ = (Index("idx_supplier_org_id", "org_id"),)

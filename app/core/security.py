@@ -33,6 +33,5 @@ def create_access_token(data: dict[str, Any]):
     return _create_token(data, delta, "access")
 
 
-def create_refresh_token(data: dict[str, Any]):
-    delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+def create_refresh_token(data: dict[str, Any], delta: timedelta):
     return _create_token(data, delta, "refresh")  # Calls the private helper

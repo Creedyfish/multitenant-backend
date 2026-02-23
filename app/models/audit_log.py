@@ -1,7 +1,10 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import JSON, UUID
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import text
+import uuid
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -9,21 +12,19 @@ from app.db.database import Base
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, server_default="gen_random_uuid()"
     )
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
-    actor_id = Column(UUID(as_uuid=True), nullable=False)  # User ID
-    action = Column(String, nullable=False)  # CREATE, UPDATE, DELETE, APPROVE, etc.
-    entity = Column(String, nullable=False)  # Product, PurchaseRequest, etc.
-    entity_id = Column(String, nullable=False)
-    before = Column(JSON, nullable=True)
-    after = Column(JSON, nullable=False)
-    timestamp = Column(
-        DateTime(timezone=True), nullable=False, server_default=text("NOW()")
-    )
-    ip_address = Column(String, nullable=True)
-    user_agent = Column(Text, nullable=True)
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
+    actor_id: Mapped[uuid.UUID]  # User ID
+    action: Mapped[str] = mapped_column(String)  # CREATE, UPDATE, DELETE, APPROVE, etc.
+    entity: Mapped[str] = mapped_column(String)  # Product, PurchaseRequest, etc.
+    entity_id: Mapped[str] = mapped_column(String)
+    before: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    after: Mapped[dict[str, Any]] = mapped_column(JSON)
+    timestamp: Mapped[datetime] = mapped_column(server_default="NOW()")
+    ip_address: Mapped[str | None] = mapped_column(String, default=None)
+    user_agent: Mapped[str | None] = mapped_column(Text, default=None)
 
     # Relationships
     organization = relationship("Organization", back_populates="audit_logs")
