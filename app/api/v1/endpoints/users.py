@@ -9,7 +9,7 @@ from app.schemas import UserRead
 router = APIRouter()
 
 
-@router.get("/users/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead)
 async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):

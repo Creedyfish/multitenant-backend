@@ -115,7 +115,7 @@ def refresh(db: DB, refresh_token: str):
     # 2. get user
     if not user_email or not isinstance(user_email, str):
         raise HTTPException(status_code=401, detail="Invalid token claims")
-    user = get_user(db, user_email)
+    user = get_user(db, user_email, org_subdomain)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
