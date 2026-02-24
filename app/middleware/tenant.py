@@ -8,9 +8,9 @@ from app.models.user import User
 
 
 def get_subdomain_from_host(request: Request) -> str | None:
-    host = request.headers.get("host", "")
+    host = request.headers.get("host", "").split(":")[0]  # strip port
     parts = host.split(".")
-    if len(parts) >= 3:
+    if len(parts) >= 2 and parts[0] not in ("localhost", "www"):
         return parts[0]
     return None
 

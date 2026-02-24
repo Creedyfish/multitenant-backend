@@ -2,7 +2,6 @@ from typing import Annotated
 
 import redis
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 # from fastapi.security import OAuth2PasswordBearer
@@ -18,8 +17,6 @@ from app.services.auth import register_organization
 
 app = FastAPI(root_path="/api/v1")
 app.include_router(router)
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 redis_client = redis.StrictRedis(host="0.0.0.0", port=6379, db=0, decode_responses=True)
 
 
