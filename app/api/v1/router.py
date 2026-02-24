@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     items,
     products,
     purchase_requests,
+    stock_movements,
     suppliers,
     users,
     warehouses,
@@ -27,4 +28,8 @@ router.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
 
 router.include_router(
     purchase_requests.router, prefix="/purchase_requests", tags=["purchase_requests"]
+)
+
+router.include_router(
+    stock_movements.router, prefix="/stock_movements", tags=["stock_movements"]
 )
