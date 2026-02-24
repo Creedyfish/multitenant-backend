@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -18,7 +18,9 @@ class Supplier(Base):
     contact_email: Mapped[str | None] = mapped_column(default=None)
     contact_phone: Mapped[str | None] = mapped_column(default=None)
     address: Mapped[str | None] = mapped_column(Text, default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
 
     # Relationships
     organization = relationship("Organization", back_populates="suppliers")

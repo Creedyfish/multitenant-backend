@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index
+from sqlalchemy import DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -17,7 +17,9 @@ class Warehouse(Base):
     name: Mapped[str]
     location: Mapped[str]
     capacity: Mapped[int | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
 
     # Relationships
     organization = relationship("Organization", back_populates="warehouses")

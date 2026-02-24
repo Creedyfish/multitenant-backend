@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -14,7 +15,9 @@ class Organization(Base):
     )
     name: Mapped[str]
     subdomain: Mapped[str] = mapped_column(unique=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
 
     # Relationships
     users = relationship("User", back_populates="organization")

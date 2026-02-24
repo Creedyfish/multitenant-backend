@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,7 +22,9 @@ class AuditLog(Base):
     entity_id: Mapped[str] = mapped_column(String)
     before: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     after: Mapped[dict[str, Any]] = mapped_column(JSON)
-    timestamp: Mapped[datetime] = mapped_column(server_default="NOW()")
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
     ip_address: Mapped[str | None] = mapped_column(String, default=None)
     user_agent: Mapped[str | None] = mapped_column(Text, default=None)
 

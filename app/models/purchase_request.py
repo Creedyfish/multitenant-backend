@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from sqlalchemy import DateTime, ForeignKey, Index, Text
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy import ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import Numeric
@@ -31,7 +31,9 @@ class PurchaseRequest(Base):
     rejected_at: Mapped[datetime | None]
     rejection_reason: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
     updated_at: Mapped[datetime] = mapped_column(
         server_default="NOW()", onupdate=func.now()
     )

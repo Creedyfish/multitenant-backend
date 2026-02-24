@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -20,7 +20,9 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text, default=None)
     category: Mapped[str | None] = mapped_column(default=None)
     min_stock_level: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="NOW()"
+    )
     updated_at: Mapped[datetime] = mapped_column(
         server_default="NOW()", onupdate=func.now()
     )
