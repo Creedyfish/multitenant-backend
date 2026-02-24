@@ -22,7 +22,7 @@ def create_supplier(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return SupplierService(db).create(current_user.org_id, payload)
+    return SupplierService(db).create(current_user.org_id, current_user.id, payload)
 
 
 @router.get("/", response_model=list[SupplierRead])
@@ -50,7 +50,9 @@ def update_supplier(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return SupplierService(db).update(current_user.org_id, supplier_id, payload)
+    return SupplierService(db).update(
+        current_user.org_id, supplier_id, current_user.id, payload
+    )
 
 
 @router.delete("/{supplier_id}", status_code=204)
@@ -61,4 +63,4 @@ def delete_supplier(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    SupplierService(db).delete(current_user.org_id, supplier_id)
+    SupplierService(db).delete(current_user.org_id, supplier_id, current_user.id)

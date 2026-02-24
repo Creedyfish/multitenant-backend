@@ -9,7 +9,7 @@ from app.core.security import oauth2_scheme
 from app.db import DB
 from app.models import User
 from app.schemas import TokenData
-from app.services.user import get_user
+from app.services.user import UserService
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DB):
@@ -31,7 +31,9 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DB
         raise credentials_exception
     if token_data.email is None:
         raise credentials_exception
-    user = get_user(db, token_data.email, subdomain)  # ✅ pass subdomain
+    user = UserService(db).get_by_email(
+        token_data.email, subdomain
+    )  # ✅ pass subdomain
     if user is None:
         raise credentials_exception
     return user

@@ -4,17 +4,19 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-class Organization(BaseModel):
+class OrganizationCreate(BaseModel):
     name: str
     subdomain: str
 
 
-class OrganizationCreate(Organization):
-    pass
+class OrganizationUpdate(BaseModel):
+    name: str | None = None
 
 
-class OrganizationRead(Organization):
+class OrganizationRead(BaseModel):
     id: UUID
+    name: str
+    subdomain: str
     created_at: datetime
 
     class Config:

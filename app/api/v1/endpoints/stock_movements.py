@@ -19,7 +19,7 @@ from app.schemas.stock_movement import (
 )
 from app.services.stock_movement import StockService
 
-router = APIRouter(prefix="/stock", tags=["Stock"])
+router = APIRouter()
 
 
 def get_service(db: DB) -> StockService:

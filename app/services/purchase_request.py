@@ -8,7 +8,9 @@ from sqlalchemy.orm import selectinload
 from app.db.database import DB
 from app.models.enums import PurchaseRequestStatusEnum, RoleEnum
 from app.models.purchase_request import PurchaseRequest, PurchaseRequestItem
+from app.schemas.audit_log import AuditLogCreate
 from app.schemas.purchase_request import PurchaseRequestCreate, PurchaseRequestUpdate
+from app.services.audit_log import AuditService
 
 # ── State machine ─────────────────────────────────────────────────────────────
 
@@ -32,6 +34,7 @@ MANAGER_ONLY_TRANSITIONS = {
 class PurchaseRequestService:
     def __init__(self, db: DB):
         self.db = db
+        self.audit = AuditService(db)
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
@@ -84,9 +87,31 @@ class PurchaseRequestService:
     def _assert_ownership_or_role(
         self, pr: PurchaseRequest, user_id: uuid.UUID, user_role: RoleEnum
     ) -> None:
-        """STAFF can only act on their own requests."""
         if user_role == RoleEnum.STAFF and pr.created_by != user_id:
             raise HTTPException(status_code=403, detail="Access denied.")
+
+    @staticmethod
+    def _snapshot(pr: PurchaseRequest) -> dict[str, object]:
+        return {
+            "status": pr.status.value,
+            "notes": pr.notes,
+            "approved_by": str(pr.approved_by) if pr.approved_by else None,
+            "approved_at": pr.approved_at.isoformat() if pr.approved_at else None,
+            "rejected_by": str(pr.rejected_by) if pr.rejected_by else None,
+            "rejected_at": pr.rejected_at.isoformat() if pr.rejected_at else None,
+            "rejection_reason": pr.rejection_reason,
+            "items": [
+                {
+                    "product_id": str(item.product_id),
+                    "quantity": item.quantity,
+                    "estimated_price": str(item.estimated_price)
+                    if item.estimated_price is not None
+                    else None,
+                    "supplier_id": str(item.supplier_id) if item.supplier_id else None,
+                }
+                for item in pr.items
+            ],
+        }
 
     # ── Public methods ────────────────────────────────────────────────────────
 
@@ -134,7 +159,7 @@ class PurchaseRequestService:
             notes=payload.notes,
         )
         self.db.add(pr)
-        self.db.flush()  # populate pr.id before inserting items
+        self.db.flush()
 
         for item_data in payload.items:
             self.db.add(
@@ -146,6 +171,19 @@ class PurchaseRequestService:
                     supplier_id=item_data.supplier_id,
                 )
             )
+
+        self.db.flush()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="CREATE",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=None,
+                after=self._snapshot(pr),
+            ),
+        )
 
         self.db.commit()
         self.db.refresh(pr)
@@ -167,6 +205,8 @@ class PurchaseRequestService:
                 status_code=422, detail="Only DRAFT requests can be edited."
             )
 
+        before = self._snapshot(pr)
+
         if payload.notes is not None:
             pr.notes = payload.notes
 
@@ -184,6 +224,19 @@ class PurchaseRequestService:
                         supplier_id=item_data.supplier_id,
                     )
                 )
+            self.db.flush()
+
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="UPDATE",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
 
         self.db.commit()
         self.db.refresh(pr)
@@ -202,7 +255,20 @@ class PurchaseRequestService:
             pr.status, PurchaseRequestStatusEnum.SUBMITTED, user_role
         )
 
+        before = self._snapshot(pr)
         pr.status = PurchaseRequestStatusEnum.SUBMITTED
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="SUBMIT",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
+
         self.db.commit()
         self.db.refresh(pr)
         return pr
@@ -219,9 +285,22 @@ class PurchaseRequestService:
             pr.status, PurchaseRequestStatusEnum.APPROVED, user_role
         )
 
+        before = self._snapshot(pr)
         pr.status = PurchaseRequestStatusEnum.APPROVED
         pr.approved_by = user_id
         pr.approved_at = self._now()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="APPROVE",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
+
         self.db.commit()
         self.db.refresh(pr)
         return pr
@@ -239,10 +318,23 @@ class PurchaseRequestService:
             pr.status, PurchaseRequestStatusEnum.REJECTED, user_role
         )
 
+        before = self._snapshot(pr)
         pr.status = PurchaseRequestStatusEnum.REJECTED
         pr.rejected_by = user_id
         pr.rejected_at = self._now()
         pr.rejection_reason = rejection_reason
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="REJECT",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
+
         self.db.commit()
         self.db.refresh(pr)
         return pr
@@ -257,7 +349,20 @@ class PurchaseRequestService:
         pr = self._get_or_404(request_id, org_id)
         self._assert_transition(pr.status, PurchaseRequestStatusEnum.ORDERED, user_role)
 
+        before = self._snapshot(pr)
         pr.status = PurchaseRequestStatusEnum.ORDERED
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="MARK_ORDERED",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
+
         self.db.commit()
         self.db.refresh(pr)
         return pr

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    audit_logs,
     auth,
     items,
     products,
@@ -33,3 +34,5 @@ router.include_router(
 router.include_router(
     stock_movements.router, prefix="/stock_movements", tags=["stock_movements"]
 )
+
+router.include_router(audit_logs.router, prefix="/audit_logs", tags=["audit_logs"])

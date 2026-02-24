@@ -22,7 +22,7 @@ def create_product(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return ProductService(db).create(current_user.org_id, payload)
+    return ProductService(db).create(current_user.org_id, current_user.id, payload)
 
 
 @router.get("/", response_model=list[ProductRead])
@@ -53,7 +53,9 @@ def update_product(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return ProductService(db).update(current_user.org_id, product_id, payload)
+    return ProductService(db).update(
+        current_user.org_id, product_id, current_user.id, payload
+    )
 
 
 @router.delete("/{product_id}", status_code=204)
@@ -64,4 +66,4 @@ def delete_product(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    ProductService(db).delete(current_user.org_id, product_id)
+    ProductService(db).delete(current_user.org_id, product_id, current_user.id)

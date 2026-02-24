@@ -6,14 +6,10 @@ from fastapi import HTTPException, status
 
 from app.core import create_access_token, create_refresh_token, verify_password
 from app.core.config import settings
-from app.core.security import get_password_hash
 from app.db.database import DB
 from app.models import RefreshToken
-from app.models.enums import RoleEnum
-from app.schemas.auth import RegisterUser
-from app.services.organization import create_organization
 from app.services.refresh_token import get_refresh_token
-from app.services.user import create_user, get_user
+from app.services.user import UserService
 
 
 def add_refresh_token(user_id: UUID, token: str, delta: timedelta, db: DB):
@@ -29,32 +25,32 @@ def add_refresh_token(user_id: UUID, token: str, delta: timedelta, db: DB):
     return data
 
 
-def register_organization(payload: RegisterUser, db: DB):
-    try:
-        org = create_organization(
-            name=payload.org_name, subdomain=payload.org_subdomain, db=db
-        )
-        password_hash = get_password_hash(payload.password)
-        user = create_user(
-            org_id=org.id,
-            email=payload.email,
-            password_hash=password_hash,
-            role=RoleEnum.ADMIN,
-            db=db,
-        )
-        db.commit()
-        db.refresh(user)
-        return user
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Registration failed")
+# def register_organization(payload: RegisterUser, db: DB):
+#     try:
+#         org = create_organization(
+#             name=payload.org_name, subdomain=payload.org_subdomain, db=db
+#         )
+#         password_hash = get_password_hash(payload.password)
+#         user = create_user(
+#             org_id=org.id,
+#             email=payload.email,
+#             password_hash=password_hash,
+#             role=RoleEnum.ADMIN,
+#             db=db,
+#         )
+#         db.commit()
+#         db.refresh(user)
+#         return user
+#     except HTTPException:
+#         db.rollback()
+#         raise
+#     except Exception:
+#         db.rollback()
+#         raise HTTPException(status_code=500, detail="Registration failed")
 
 
 def authenticate_user(db: DB, username: str, password: str, subdomain: str):
-    user = get_user(db, username, subdomain)
+    user = UserService(db).get_by_email(username, subdomain)
     if not user:
         return False
     if not verify_password(password, user.password_hash):
@@ -115,7 +111,7 @@ def refresh(db: DB, refresh_token: str):
     # 2. get user
     if not user_email or not isinstance(user_email, str):
         raise HTTPException(status_code=401, detail="Invalid token claims")
-    user = get_user(db, user_email, org_subdomain)
+    user = UserService(db).get_by_email(user_email, org_subdomain)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 

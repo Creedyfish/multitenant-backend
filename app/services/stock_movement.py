@@ -7,6 +7,7 @@ from sqlalchemy import case, func, select
 from app.db.database import DB
 from app.models.enums import StockMovementTypeEnum
 from app.models.stock_movement import StockMovement
+from app.schemas.audit_log import AuditLogCreate
 from app.schemas.stock_movement import (
     StockAdjustmentCreate,
     StockInCreate,
@@ -14,18 +15,19 @@ from app.schemas.stock_movement import (
     StockOutCreate,
     StockTransferCreate,
 )
+from app.services.audit_log import AuditService
 
 
 class StockService:
     def __init__(self, db: DB):
         self.db = db
+        self.audit = AuditService(db)
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _current_stock(
         self, org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid.UUID
     ) -> int:
-        """Calculate current stock level from the ledger."""
         signed_qty = case(
             (
                 StockMovement.type.in_(
@@ -72,6 +74,17 @@ class StockService:
         self.db.add(movement)
         return movement
 
+    @staticmethod
+    def _movement_snapshot(movement: StockMovement) -> dict[str, str | int | None]:
+        return {
+            "product_id": str(movement.product_id),
+            "warehouse_id": str(movement.warehouse_id),
+            "type": movement.type.value,
+            "quantity": movement.quantity,
+            "reference": movement.reference,
+            "notes": movement.notes,
+        }
+
     # ── Public methods ────────────────────────────────────────────────────────
 
     def stock_in(
@@ -89,6 +102,18 @@ class StockService:
             quantity=payload.quantity,
             reference=payload.reference,
             notes=payload.notes,
+        )
+        self.db.flush()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="STOCK_IN",
+                entity="StockMovement",
+                entity_id=str(movement.id),
+                before=None,
+                after=self._movement_snapshot(movement),
+            ),
         )
         self.db.commit()
         self.db.refresh(movement)
@@ -116,6 +141,18 @@ class StockService:
             quantity=payload.quantity,
             reference=payload.reference,
             notes=payload.notes,
+        )
+        self.db.flush()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="STOCK_OUT",
+                entity="StockMovement",
+                entity_id=str(movement.id),
+                before=None,
+                after=self._movement_snapshot(movement),
+            ),
         )
         self.db.commit()
         self.db.refresh(movement)
@@ -165,6 +202,28 @@ class StockService:
             notes=payload.notes,
         )
 
+        self.db.flush()
+        # Log a single audit entry for the transfer as a whole, referencing
+        # both movement IDs and the shared transfer_ref so it's easy to query.
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="STOCK_TRANSFER",
+                entity="StockMovement",
+                entity_id=str(out_movement.id),
+                before=None,
+                after={
+                    "transfer_ref": transfer_ref,
+                    "product_id": str(payload.product_id),
+                    "from_warehouse_id": str(payload.from_warehouse_id),
+                    "to_warehouse_id": str(payload.to_warehouse_id),
+                    "quantity": payload.quantity,
+                    "notes": payload.notes,
+                    "in_movement_id": str(in_movement.id),
+                },
+            ),
+        )
         self.db.commit()
         self.db.refresh(out_movement)
         self.db.refresh(in_movement)
@@ -181,7 +240,6 @@ class StockService:
                 status_code=422, detail="Adjustment quantity cannot be zero."
             )
 
-        # For negative adjustments, check we have enough stock
         if payload.quantity < 0:
             current = self._current_stock(
                 org_id, payload.product_id, payload.warehouse_id
@@ -202,9 +260,23 @@ class StockService:
             reference=payload.reference,
             notes=payload.notes,
         )
+        self.db.flush()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="STOCK_ADJUSTMENT",
+                entity="StockMovement",
+                entity_id=str(movement.id),
+                before=None,
+                after=self._movement_snapshot(movement),
+            ),
+        )
         self.db.commit()
         self.db.refresh(movement)
         return movement
+
+    # ── Read methods (unchanged) ──────────────────────────────────────────────
 
     def get_ledger(
         self,

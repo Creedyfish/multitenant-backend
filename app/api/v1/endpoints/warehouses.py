@@ -22,7 +22,7 @@ def create_warehouse(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return WarehouseService(db).create(current_user.org_id, payload)
+    return WarehouseService(db).create(current_user.org_id, current_user.id, payload)
 
 
 @router.get("/", response_model=list[WarehouseRead])
@@ -50,7 +50,9 @@ def update_warehouse(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    return WarehouseService(db).update(current_user.org_id, warehouse_id, payload)
+    return WarehouseService(db).update(
+        current_user.org_id, warehouse_id, current_user.id, payload
+    )
 
 
 @router.delete("/{warehouse_id}", status_code=204)
@@ -61,4 +63,4 @@ def delete_warehouse(
         User, Depends(require_role([RoleEnum.ADMIN, RoleEnum.MANAGER]))
     ],
 ):
-    WarehouseService(db).delete(current_user.org_id, warehouse_id)
+    WarehouseService(db).delete(current_user.org_id, warehouse_id, current_user.id)

@@ -2,10 +2,9 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_active_user
-from app.db.database import get_db
+from app.db.database import DB
 from app.models.enums import PurchaseRequestStatusEnum
 from app.models.user import User
 from app.schemas.purchase_request import (
@@ -20,7 +19,7 @@ from app.services.purchase_request import PurchaseRequestService
 router = APIRouter()
 
 
-def get_service(db: Session = Depends(get_db)) -> PurchaseRequestService:
+def get_service(db: DB) -> PurchaseRequestService:
     return PurchaseRequestService(db)
 
 
