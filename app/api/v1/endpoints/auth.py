@@ -9,14 +9,14 @@ from app.core import verify_password
 from app.db.database import DB
 from app.middleware.tenant import get_tenant
 from app.schemas import Token
-from app.services import get_user
 from app.services.auth import login, refresh
+from app.services.user import UserService
 
 router = APIRouter()
 
 
 def authenticate_user(db: DB, username: str, password: str):
-    user = get_user(db, username)
+    user = UserService(db).get_by_email(username)
     if not user:
         return False
     if not verify_password(password, user.password_hash):

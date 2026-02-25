@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -12,7 +12,7 @@ class Product(Base):
     __tablename__ = "products"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     sku: Mapped[str]
@@ -20,9 +20,11 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text, default=None)
     category: Mapped[str | None] = mapped_column(default=None)
     min_stock_level: Mapped[int] = mapped_column(default=0)
-    created_at: Mapped[datetime] = mapped_column(server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("NOW()")
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        server_default="NOW()", onupdate=func.now()
+        server_default=text("NOW()"), onupdate=func.now()
     )
 
     # Relationships

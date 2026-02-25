@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Database settings
     DATABASE_URL: str = Field(..., description="database url")
-
+    DATABASE_URL_TESTING: str = Field(..., description="test database url")
     model_config = SettingsConfigDict(env_file=".env")
 
     @property
