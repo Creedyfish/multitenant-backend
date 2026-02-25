@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, text
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,7 +18,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     email: Mapped[str] = mapped_column(String)
@@ -26,7 +26,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String)
     role: Mapped[RoleEnum] = mapped_column(SQLEnum(RoleEnum), default=RoleEnum.STAFF)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
 
     organization: Mapped["Organization"] = relationship(back_populates="users")
@@ -41,13 +41,13 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     token: Mapped[str] = mapped_column(String, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
 
     __table_args__ = (Index("idx_refresh_token_user", "user_id"),)

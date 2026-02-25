@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Text, text
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -17,7 +17,7 @@ class PurchaseRequest(Base):
     __tablename__ = "purchase_requests"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     request_number: Mapped[str]
@@ -32,10 +32,10 @@ class PurchaseRequest(Base):
     rejection_reason: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
     updated_at: Mapped[datetime] = mapped_column(
-        server_default="NOW()", onupdate=func.now()
+        server_default=text("NOW()"), onupdate=func.now()
     )
 
     # Relationships
@@ -54,7 +54,7 @@ class PurchaseRequestItem(Base):
     __tablename__ = "purchase_request_items"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("purchase_requests.id"))
     product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"))

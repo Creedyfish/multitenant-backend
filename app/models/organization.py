@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -11,12 +11,12 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     name: Mapped[str]
     subdomain: Mapped[str] = mapped_column(unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
 
     # Relationships

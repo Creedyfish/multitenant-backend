@@ -6,7 +6,9 @@ from sqlalchemy import case, func, select
 
 from app.db.database import DB
 from app.models.enums import StockMovementTypeEnum
+from app.models.product import Product
 from app.models.stock_movement import StockMovement
+from app.models.warehouse import Warehouse
 from app.schemas.audit_log import AuditLogCreate
 from app.schemas.stock_movement import (
     StockAdjustmentCreate,
@@ -24,6 +26,30 @@ class StockService:
         self.audit = AuditService(db)
 
     # ── Private helpers ───────────────────────────────────────────────────────
+
+    def _validate_org_ownership(
+        self,
+        org_id: uuid.UUID,
+        product_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+    ) -> None:
+        warehouse = self.db.execute(
+            select(Warehouse).where(
+                Warehouse.id == warehouse_id,
+                Warehouse.org_id == org_id,
+            )
+        ).scalar_one_or_none()
+        if not warehouse:
+            raise HTTPException(status_code=404, detail="Warehouse not found.")
+
+        product = self.db.execute(
+            select(Product).where(
+                Product.id == product_id,
+                Product.org_id == org_id,
+            )
+        ).scalar_one_or_none()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found.")
 
     def _current_stock(
         self, org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid.UUID
@@ -93,29 +119,35 @@ class StockService:
         user_id: uuid.UUID,
         payload: StockInCreate,
     ) -> StockMovement:
-        movement = self._create_movement(
-            org_id=org_id,
-            user_id=user_id,
-            product_id=payload.product_id,
-            warehouse_id=payload.warehouse_id,
-            movement_type=StockMovementTypeEnum.IN,
-            quantity=payload.quantity,
-            reference=payload.reference,
-            notes=payload.notes,
-        )
-        self.db.flush()
-        self.audit.log(
-            org_id,
-            AuditLogCreate(
-                actor_id=user_id,
-                action="STOCK_IN",
-                entity="StockMovement",
-                entity_id=str(movement.id),
-                before=None,
-                after=self._movement_snapshot(movement),
-            ),
-        )
-        self.db.commit()
+        self._validate_org_ownership(org_id, payload.product_id, payload.warehouse_id)
+        try:
+            movement = self._create_movement(
+                org_id=org_id,
+                user_id=user_id,
+                product_id=payload.product_id,
+                warehouse_id=payload.warehouse_id,
+                movement_type=StockMovementTypeEnum.IN,
+                quantity=payload.quantity,
+                reference=payload.reference,
+                notes=payload.notes,
+            )
+            self.db.flush()
+            self.audit.log(
+                org_id,
+                AuditLogCreate(
+                    actor_id=user_id,
+                    action="STOCK_IN",
+                    entity="StockMovement",
+                    entity_id=str(movement.id),
+                    before=None,
+                    after=self._movement_snapshot(movement),
+                ),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
         self.db.refresh(movement)
         return movement
 
@@ -125,6 +157,7 @@ class StockService:
         user_id: uuid.UUID,
         payload: StockOutCreate,
     ) -> StockMovement:
+        self._validate_org_ownership(org_id, payload.product_id, payload.warehouse_id)
         current = self._current_stock(org_id, payload.product_id, payload.warehouse_id)
         if current < payload.quantity:
             raise HTTPException(
@@ -132,29 +165,34 @@ class StockService:
                 detail=f"Insufficient stock. Available: {current}, requested: {payload.quantity}.",
             )
 
-        movement = self._create_movement(
-            org_id=org_id,
-            user_id=user_id,
-            product_id=payload.product_id,
-            warehouse_id=payload.warehouse_id,
-            movement_type=StockMovementTypeEnum.OUT,
-            quantity=payload.quantity,
-            reference=payload.reference,
-            notes=payload.notes,
-        )
-        self.db.flush()
-        self.audit.log(
-            org_id,
-            AuditLogCreate(
-                actor_id=user_id,
-                action="STOCK_OUT",
-                entity="StockMovement",
-                entity_id=str(movement.id),
-                before=None,
-                after=self._movement_snapshot(movement),
-            ),
-        )
-        self.db.commit()
+        try:
+            movement = self._create_movement(
+                org_id=org_id,
+                user_id=user_id,
+                product_id=payload.product_id,
+                warehouse_id=payload.warehouse_id,
+                movement_type=StockMovementTypeEnum.OUT,
+                quantity=payload.quantity,
+                reference=payload.reference,
+                notes=payload.notes,
+            )
+            self.db.flush()
+            self.audit.log(
+                org_id,
+                AuditLogCreate(
+                    actor_id=user_id,
+                    action="STOCK_OUT",
+                    entity="StockMovement",
+                    entity_id=str(movement.id),
+                    before=None,
+                    after=self._movement_snapshot(movement),
+                ),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
         self.db.refresh(movement)
         return movement
 
@@ -164,6 +202,9 @@ class StockService:
         user_id: uuid.UUID,
         payload: StockTransferCreate,
     ) -> tuple[StockMovement, StockMovement]:
+        self._validate_org_ownership(
+            org_id, payload.product_id, payload.from_warehouse_id
+        )
         if payload.from_warehouse_id == payload.to_warehouse_id:
             raise HTTPException(
                 status_code=422,
@@ -181,50 +222,52 @@ class StockService:
 
         transfer_ref = f"TRANSFER-{uuid.uuid4().hex[:8].upper()}"
 
-        out_movement = self._create_movement(
-            org_id=org_id,
-            user_id=user_id,
-            product_id=payload.product_id,
-            warehouse_id=payload.from_warehouse_id,
-            movement_type=StockMovementTypeEnum.TRANSFER_OUT,
-            quantity=payload.quantity,
-            reference=transfer_ref,
-            notes=payload.notes,
-        )
-        in_movement = self._create_movement(
-            org_id=org_id,
-            user_id=user_id,
-            product_id=payload.product_id,
-            warehouse_id=payload.to_warehouse_id,
-            movement_type=StockMovementTypeEnum.TRANSFER_IN,
-            quantity=payload.quantity,
-            reference=transfer_ref,
-            notes=payload.notes,
-        )
+        try:
+            out_movement = self._create_movement(
+                org_id=org_id,
+                user_id=user_id,
+                product_id=payload.product_id,
+                warehouse_id=payload.from_warehouse_id,
+                movement_type=StockMovementTypeEnum.TRANSFER_OUT,
+                quantity=payload.quantity,
+                reference=transfer_ref,
+                notes=payload.notes,
+            )
+            in_movement = self._create_movement(
+                org_id=org_id,
+                user_id=user_id,
+                product_id=payload.product_id,
+                warehouse_id=payload.to_warehouse_id,
+                movement_type=StockMovementTypeEnum.TRANSFER_IN,
+                quantity=payload.quantity,
+                reference=transfer_ref,
+                notes=payload.notes,
+            )
+            self.db.flush()
+            self.audit.log(
+                org_id,
+                AuditLogCreate(
+                    actor_id=user_id,
+                    action="STOCK_TRANSFER",
+                    entity="StockMovement",
+                    entity_id=str(out_movement.id),
+                    before=None,
+                    after={
+                        "transfer_ref": transfer_ref,
+                        "product_id": str(payload.product_id),
+                        "from_warehouse_id": str(payload.from_warehouse_id),
+                        "to_warehouse_id": str(payload.to_warehouse_id),
+                        "quantity": payload.quantity,
+                        "notes": payload.notes,
+                        "in_movement_id": str(in_movement.id),
+                    },
+                ),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
-        self.db.flush()
-        # Log a single audit entry for the transfer as a whole, referencing
-        # both movement IDs and the shared transfer_ref so it's easy to query.
-        self.audit.log(
-            org_id,
-            AuditLogCreate(
-                actor_id=user_id,
-                action="STOCK_TRANSFER",
-                entity="StockMovement",
-                entity_id=str(out_movement.id),
-                before=None,
-                after={
-                    "transfer_ref": transfer_ref,
-                    "product_id": str(payload.product_id),
-                    "from_warehouse_id": str(payload.from_warehouse_id),
-                    "to_warehouse_id": str(payload.to_warehouse_id),
-                    "quantity": payload.quantity,
-                    "notes": payload.notes,
-                    "in_movement_id": str(in_movement.id),
-                },
-            ),
-        )
-        self.db.commit()
         self.db.refresh(out_movement)
         self.db.refresh(in_movement)
         return out_movement, in_movement
@@ -235,6 +278,7 @@ class StockService:
         user_id: uuid.UUID,
         payload: StockAdjustmentCreate,
     ) -> StockMovement:
+        self._validate_org_ownership(org_id, payload.product_id, payload.warehouse_id)
         if payload.quantity == 0:
             raise HTTPException(
                 status_code=422, detail="Adjustment quantity cannot be zero."
@@ -250,33 +294,38 @@ class StockService:
                     detail=f"Insufficient stock to adjust. Available: {current}.",
                 )
 
-        movement = self._create_movement(
-            org_id=org_id,
-            user_id=user_id,
-            product_id=payload.product_id,
-            warehouse_id=payload.warehouse_id,
-            movement_type=StockMovementTypeEnum.ADJUSTMENT,
-            quantity=payload.quantity,
-            reference=payload.reference,
-            notes=payload.notes,
-        )
-        self.db.flush()
-        self.audit.log(
-            org_id,
-            AuditLogCreate(
-                actor_id=user_id,
-                action="STOCK_ADJUSTMENT",
-                entity="StockMovement",
-                entity_id=str(movement.id),
-                before=None,
-                after=self._movement_snapshot(movement),
-            ),
-        )
-        self.db.commit()
+        try:
+            movement = self._create_movement(
+                org_id=org_id,
+                user_id=user_id,
+                product_id=payload.product_id,
+                warehouse_id=payload.warehouse_id,
+                movement_type=StockMovementTypeEnum.ADJUSTMENT,
+                quantity=payload.quantity,
+                reference=payload.reference,
+                notes=payload.notes,
+            )
+            self.db.flush()
+            self.audit.log(
+                org_id,
+                AuditLogCreate(
+                    actor_id=user_id,
+                    action="STOCK_ADJUSTMENT",
+                    entity="StockMovement",
+                    entity_id=str(movement.id),
+                    before=None,
+                    after=self._movement_snapshot(movement),
+                ),
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
         self.db.refresh(movement)
         return movement
 
-    # ── Read methods (unchanged) ──────────────────────────────────────────────
+    # ── Read methods ──────────────────────────────────────────────────────────
 
     def get_ledger(
         self,

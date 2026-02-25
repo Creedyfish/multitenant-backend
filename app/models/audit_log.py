@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,7 +13,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     actor_id: Mapped[uuid.UUID]  # User ID
@@ -23,7 +23,7 @@ class AuditLog(Base):
     before: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     after: Mapped[dict[str, Any]] = mapped_column(JSON)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
     ip_address: Mapped[str | None] = mapped_column(String, default=None)
     user_agent: Mapped[str | None] = mapped_column(Text, default=None)

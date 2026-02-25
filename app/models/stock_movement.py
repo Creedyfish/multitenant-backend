@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Text, text
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,7 +14,7 @@ class StockMovement(Base):
     __tablename__ = "stock_movements"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, server_default="gen_random_uuid()"
+        primary_key=True, server_default=text("gen_random_uuid()")
     )
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     product_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("products.id"))
@@ -25,7 +25,7 @@ class StockMovement(Base):
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     created_by: Mapped[uuid.UUID]  # User ID
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default="NOW()"
+        DateTime(timezone=True), server_default=text("NOW()")
     )
 
     # Relationships
