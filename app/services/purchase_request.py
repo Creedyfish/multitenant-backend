@@ -46,7 +46,7 @@ class PurchaseRequestService:
     ) -> None:
         if target not in TRANSITIONS[current]:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Cannot transition from {current.value} to {target.value}.",
             )
         if target in MANAGER_ONLY_TRANSITIONS and user_role not in (

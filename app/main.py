@@ -10,7 +10,12 @@ from app.core.dependencies import get_current_active_user
 from app.db.database import DB
 from app.models import Organization, User
 
-app = FastAPI(root_path="/api/v1")
+app = FastAPI(
+    root_path="/api/v1",
+    docs_url="/docs" if settings.ENV == "development" else None,
+    redoc_url="/redoc" if settings.ENV == "development" else None,
+    openapi_url="/openapi.json" if settings.ENV == "development" else None,
+)
 app.include_router(router)
 redis_client = redis.StrictRedis(host="0.0.0.0", port=6379, db=0, decode_responses=True)
 
