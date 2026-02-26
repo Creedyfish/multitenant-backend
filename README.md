@@ -113,6 +113,10 @@ Key configuration settings can be found in [app/core/config.py](app/core/config.
 
 ## Development
 
+## Notes
+
+- I used sync SQLAlchemy with FastAPI's threadpool handling. I'm aware of the async alternative with asyncpg and AsyncSession and would migrate to that if the app needed to handle high concurrency."
+
 ### Adding New Endpoints
 
 1. Create a new endpoint file in `app/api/v1/endpoints/`
