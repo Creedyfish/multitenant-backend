@@ -281,6 +281,41 @@ class TestStockTransfer:
         assert types == {"TRANSFER_OUT", "TRANSFER_IN"}
         assert movements[0]["reference"] == movements[1]["reference"]
 
+    def test_transfer_non_org_warehouse_returns_422(
+        self,
+        client: TestClient,
+        headers: dict[str, str],
+        product: Product,
+        warehouse: Warehouse,
+        db: Session,
+    ) -> None:
+        # create a warehouse belonging to a completely different org
+        other_org = make_org(db, name="Other Org", subdomain="other-org")
+        foreign_warehouse = Warehouse(
+            id=uuid.uuid4(),
+            org_id=other_org.id,
+            name="Foreign Warehouse",
+            location="Elsewhere",
+        )
+        db.add(foreign_warehouse)
+        db.flush()
+
+        do_stock_in(client, headers, product.id, warehouse.id, 100)
+
+        response = client.post(
+            "/stock_movements/transfer",
+            json={
+                "product_id": str(product.id),
+                "from_warehouse_id": str(warehouse.id),
+                "to_warehouse_id": str(
+                    foreign_warehouse.id
+                ),  # ← foreign org's warehouse
+                "quantity": 40,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 404  # not 422 — warehouse not found in this org
+
     def test_transfer_same_warehouse_returns_422(
         self,
         client: TestClient,
