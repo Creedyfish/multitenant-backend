@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     DATABASE_URL_TESTING: str = Field(..., description="test database url")
     model_config = SettingsConfigDict(env_file=".env")
 
+    # Services settings
+    RESEND_API: str = Field(..., description="resend api")
+
     @property
     def API_BASE(self) -> str:
         return f"{self.API_PREFIX}/{self.API_VERSION}"
