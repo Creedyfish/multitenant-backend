@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ENV: str = Field(..., description="env")
+    REDIS_URL: str = Field(..., description="Redis URL")
 
     # API settings
     API_PREFIX: str = "/api"

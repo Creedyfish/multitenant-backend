@@ -3,11 +3,13 @@ import uuid
 
 from sqlalchemy import or_, select
 
+from app.core.redis import redis_client
 from app.db.database import SessionLocal
 from app.models.enums import RoleEnum
 from app.models.user import User
 from app.models.warehouse import Warehouse
 from app.services.email import send_low_stock_alert
+from app.services.event_publisher import publish_event  # type: ignore
 from app.services.product import ProductService
 from app.services.stock_movement import StockService
 from app.services.warehouse import WarehouseService
@@ -57,6 +59,19 @@ def check_low_stock(org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid
             warehouse_name=warehouse.name,
             current_stock=current_stock,
             minimum_stock=product.min_stock_level,
+        )
+        publish_event(
+            redis_client,
+            org_id,
+            "low_stock",
+            {
+                "product_id": str(product_id),
+                "product_name": product.name,
+                "warehouse_id": str(warehouse_id),
+                "warehouse_name": warehouse.name,
+                "current_stock": current_stock,
+                "minimum_stock": product.min_stock_level,
+            },
         )
 
     else:

@@ -2,7 +2,6 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-import redis
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 from apscheduler.triggers.cron import CronTrigger  # type: ignore
 from fastapi import Depends, FastAPI, HTTPException
@@ -44,13 +43,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    lifespan=lifespan,
     root_path="/api/v1",
     docs_url="/docs" if settings.ENV == "development" else None,
     redoc_url="/redoc" if settings.ENV == "development" else None,
     openapi_url="/openapi.json" if settings.ENV == "development" else None,
 )
 app.include_router(router)
-redis_client = redis.StrictRedis(host="0.0.0.0", port=6379, db=0, decode_responses=True)
 
 
 @app.get("/settings")
