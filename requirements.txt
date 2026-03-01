@@ -19,3 +19,4 @@ resend
 apscheduler
 slowapi
 structlog
+sentry-sdk

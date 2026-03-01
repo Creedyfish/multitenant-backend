@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import structlog
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 from apscheduler.triggers.cron import CronTrigger  # type: ignore
@@ -14,6 +15,13 @@ from app.core.limiter import limiter
 from app.core.logger import setup_logging
 from app.jobs.cleanup import scheduled_cleanup
 from app.jobs.weekly_report import weekly_report
+
+sentry_sdk.init(
+    dsn=settings.SENTRY_DSN,
+    environment=settings.ENV,
+    traces_sample_rate=1.0 if settings.ENV == "development" else 0.1,
+    send_default_pii=False,
+)
 
 setup_logging()
 logger = structlog.get_logger()

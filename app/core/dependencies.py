@@ -1,6 +1,7 @@
 from typing import Annotated
 
 import jwt
+import sentry_sdk
 from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
 
@@ -31,11 +32,18 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: DB
         raise credentials_exception
     if token_data.email is None:
         raise credentials_exception
-    user = UserService(db).get_by_email(
-        token_data.email, subdomain
-    )  # ✅ pass subdomain
+    user = UserService(db).get_by_email(token_data.email, subdomain)
     if user is None:
         raise credentials_exception
+
+    sentry_sdk.set_user(
+        {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role.value,
+        }
+    )
+    sentry_sdk.set_tag("org_id", str(user.org_id))
     return user
 
 

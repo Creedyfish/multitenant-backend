@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = Field(..., description="database url")
     DATABASE_URL_TESTING: str = Field(..., description="test database url")
+    SENTRY_DSN: str = Field(..., description="sentry DSN")
     model_config = SettingsConfigDict(env_file=".env")
-
     # Services settings
     RESEND_API: str = Field(..., description="resend api")
 

@@ -8,5 +8,5 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["60/minute"],
     storage_uri=settings.REDIS_URL,
-    enabled=settings.ENV != "development",  # disabled when ENV=testing
+    enabled=settings.ENV != "testing",  # disabled when ENV=testing
 )
