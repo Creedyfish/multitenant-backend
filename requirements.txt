@@ -17,3 +17,5 @@ psycopg2-binary
 pydantic[email]
 resend
 apscheduler
+slowapi
+structlog

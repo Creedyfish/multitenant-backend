@@ -2,19 +2,22 @@ import ast
 import os
 
 # --- Configuration ---
-EXCLUDE = {"migrations", "static", "templates", "scripts", "__pycache__"}
+EXCLUDE = {"migrations", "static", "templates", "scripts", "__pycache__", "db"}
 BASE_DIR = "app"
 SKIP_ROOT = True
 
-# Specify which top-level variables/aliases to include
-INCLUDE_VARIABLES = {"DB", "OrgID"}  # add other aliases you want exposed
+# Top-level variables/aliases to include
+INCLUDE_VARIABLES = {"DB", "OrgID", "settings"}
+
+# Internal helpers that shouldn't be exported
+EXCLUDE_NAMES = {"get_service", "require_admin", "require_manager"}
 
 
-# --- Helper function ---
+# --- Helper functions ---
 def get_public_names(file_path: str) -> list[str]:
     """
     Return all public classes, functions, and selected top-level variables.
-    Skips names starting with _ and ignores other variables.
+    Skips names starting with _, in EXCLUDE_NAMES, and ignores other variables.
     """
     with open(file_path, "r", encoding="utf-8") as f:
         node = ast.parse(f.read(), filename=file_path)
@@ -22,12 +25,10 @@ def get_public_names(file_path: str) -> list[str]:
     names: list[str] = []
 
     for n in node.body:
-        # classes and functions
         if isinstance(n, (ast.ClassDef, ast.FunctionDef)):
-            if not n.name.startswith("_"):
+            if not n.name.startswith("_") and n.name not in EXCLUDE_NAMES:
                 names.append(n.name)
 
-        # top-level variables (selective)
         elif isinstance(n, ast.Assign):
             for target in n.targets:
                 if isinstance(target, ast.Name) and target.id in INCLUDE_VARIABLES:
@@ -36,8 +37,43 @@ def get_public_names(file_path: str) -> list[str]:
     return names
 
 
+def parse_existing_init(init_path: str) -> dict[str, set[str]]:
+    """
+    Parse an existing __init__.py and return a dict of
+    {module_name: set(imported_names)} for relative imports only.
+    """
+    existing: dict[str, set[str]] = {}
+    if not os.path.exists(init_path):
+        return existing
+
+    with open(init_path, "r", encoding="utf-8") as f:
+        try:
+            node = ast.parse(f.read(), filename=init_path)
+        except SyntaxError:
+            return existing
+
+    for n in node.body:
+        if isinstance(n, ast.ImportFrom) and n.level == 1 and n.module:
+            names = {alias.asname or alias.name for alias in n.names}
+            existing.setdefault(n.module, set()).update(names)
+
+    return existing
+
+
+def dedup_ordered(items: list[str]) -> list[str]:
+    """Deduplicate a list while preserving insertion order."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
 # --- Walk directories ---
 for root, dirs, files in os.walk(BASE_DIR):
+    # Skip excluded directories
     if any(ex in root.split(os.sep) for ex in EXCLUDE):
         continue
     if SKIP_ROOT and os.path.abspath(root) == os.path.abspath(BASE_DIR):
@@ -48,34 +84,63 @@ for root, dirs, files in os.walk(BASE_DIR):
         continue
 
     init_path = os.path.join(root, "__init__.py")
+    already_exists = os.path.exists(init_path)
+
+    # Load what's already imported in the existing __init__.py
+    existing_map = parse_existing_init(init_path)
+
     module_map: dict[str, list[str]] = {}
 
-    for file in py_files:
+    for file in sorted(py_files):
         file_path = os.path.join(root, file)
         names = get_public_names(file_path)
-        if names:
-            module_name = os.path.splitext(file)[0]
-            module_map[module_name] = names
+        module_name = os.path.splitext(file)[0]
+
+        # Merge scanned names with any existing imports for this module
+        existing_names = existing_map.pop(module_name, set())
+        merged = dedup_ordered([*names, *existing_names])
+
+        if merged:
+            module_map[module_name] = merged
+
+    # Preserve manually added imports from existing __init__.py
+    # that don't correspond to any scanned file
+    for module, names in existing_map.items():
+        filtered = [n for n in sorted(names) if n not in EXCLUDE_NAMES]
+        if filtered:
+            module_map[module] = filtered
 
     if not module_map:
         continue
 
-    # --- Build __init__.py content ---
-    content_lines: list[str] = []
+    # --- Detect cross-module duplicate names and warn ---
+    name_to_modules: dict[str, list[str]] = {}
+    for module, names in module_map.items():
+        for name in names:
+            name_to_modules.setdefault(name, []).append(module)
 
-    # Imports first (merge per module)
+    duplicates = {name for name, mods in name_to_modules.items() if len(mods) > 1}
+    if duplicates:
+        print(
+            f"  ⚠️  Duplicate names in {root} (will be exported once): {sorted(duplicates)}"
+        )
+
+    # --- Build __init__.py content ---
+    content_lines: list[str] = ["# autogenerated - do not edit manually\n"]
+
     for module, names in sorted(module_map.items()):
         names_str = ", ".join(names)
         content_lines.append(f"from .{module} import {names_str}\n")
 
     content_lines.append("\n")
 
-    # __all__ at the bottom
-    all_names = [name for names in module_map.values() for name in names]
+    # Deduplicated __all__ (first occurrence wins)
+    all_names = dedup_ordered([n for names in module_map.values() for n in names])
     content_lines.append(f"__all__ = {all_names!r}\n")
 
-    # Write the __init__.py
+    # --- Write the __init__.py ---
     with open(init_path, "w", encoding="utf-8") as f:
         f.writelines(content_lines)
 
-    print(f"Created {init_path} with {len(all_names)} public items")
+    action = "Updated" if already_exists else "Created"
+    print(f"{action} {init_path} with {len(all_names)} public items")
