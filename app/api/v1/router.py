@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     audit_logs,
     auth,
+    events,
     items,
     products,
     purchase_requests,
@@ -36,3 +37,5 @@ router.include_router(
 )
 
 router.include_router(audit_logs.router, prefix="/audit_logs", tags=["audit_logs"])
+
+router.include_router(events.router, prefix="/events", tags=["events"])

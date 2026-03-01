@@ -1,10 +1,11 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.core.dependencies import get_current_active_user
-from app.db import DB
+from app.core.limiter import limiter
+from app.db.database import DB
 from app.middleware.tenant import OrgID
 from app.models import RoleEnum, User
 from app.schemas.user import (
@@ -46,10 +47,12 @@ AdminUser = Annotated[User, Depends(require_admin)]
     response_model=RegisterResponse,
     status_code=201,
 )
+@limiter.limit("3/hour")  # type: ignore
 def register(
+    request: Request,
     payload: RegisterRequest,
     service: UserService = Depends(get_service),
-):
+) -> RegisterResponse:
     """Create a new organization and its first admin user in one step."""
     user = service.register(payload)
     return RegisterResponse(

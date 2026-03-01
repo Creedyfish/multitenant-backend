@@ -202,14 +202,19 @@ class StockService:
         user_id: uuid.UUID,
         payload: StockTransferCreate,
     ) -> tuple[StockMovement, StockMovement]:
-        self._validate_org_ownership(
-            org_id, payload.product_id, payload.from_warehouse_id
-        )
+
         if payload.from_warehouse_id == payload.to_warehouse_id:
             raise HTTPException(
                 status_code=422,
                 detail="Source and destination warehouses must be different.",
             )
+
+        self._validate_org_ownership(
+            org_id, payload.product_id, payload.from_warehouse_id
+        )
+        self._validate_org_ownership(
+            org_id, payload.product_id, payload.to_warehouse_id
+        )
 
         current = self._current_stock(
             org_id, payload.product_id, payload.from_warehouse_id

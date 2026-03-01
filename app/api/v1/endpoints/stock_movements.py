@@ -2,10 +2,12 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 
 from app.core.dependencies import get_current_active_user
+from app.core.redis import redis_client
 from app.db.database import DB
+from app.jobs.low_stock import check_low_stock
 from app.middleware.tenant import OrgID
 from app.models.enums import RoleEnum, StockMovementTypeEnum
 from app.models.user import User
@@ -17,6 +19,7 @@ from app.schemas.stock_movement import (
     StockOutCreate,
     StockTransferCreate,
 )
+from app.services.event_publisher import publish_event  # type: ignore
 from app.services.stock_movement import StockService
 
 router = APIRouter()
@@ -49,7 +52,19 @@ def stock_in(
     org_id: OrgID,
     service: StockService = Depends(get_service),
 ):
-    return service.stock_in(org_id=org_id, user_id=current_user.id, payload=payload)
+    movement = service.stock_in(org_id=org_id, user_id=current_user.id, payload=payload)
+    publish_event(
+        redis_client,
+        org_id,
+        "stock_movement",
+        {
+            "movement_type": "IN",
+            "product_id": str(payload.product_id),
+            "warehouse_id": str(payload.warehouse_id),
+            "quantity": payload.quantity,
+        },
+    )
+    return movement
 
 
 @router.post("/out", response_model=StockMovementOut, status_code=201)
@@ -57,9 +72,27 @@ def stock_out(
     payload: StockOutCreate,
     current_user: ManagerUser,
     org_id: OrgID,
+    background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
-    return service.stock_out(org_id=org_id, user_id=current_user.id, payload=payload)
+    movement = service.stock_out(
+        org_id=org_id, user_id=current_user.id, payload=payload
+    )
+    background_tasks.add_task(
+        check_low_stock, org_id, payload.product_id, payload.warehouse_id
+    )
+    publish_event(
+        redis_client,
+        org_id,
+        "stock_movement",
+        {
+            "movement_type": "OUT",
+            "product_id": str(payload.product_id),
+            "warehouse_id": str(payload.warehouse_id),
+            "quantity": payload.quantity,
+        },
+    )
+    return movement
 
 
 @router.post("/transfer", response_model=list[StockMovementOut], status_code=201)
@@ -67,10 +100,26 @@ def stock_transfer(
     payload: StockTransferCreate,
     current_user: ManagerUser,
     org_id: OrgID,
+    background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
     out_mv, in_mv = service.transfer(
         org_id=org_id, user_id=current_user.id, payload=payload
+    )
+    background_tasks.add_task(
+        check_low_stock, org_id, payload.product_id, payload.from_warehouse_id
+    )
+    publish_event(
+        redis_client,
+        org_id,
+        "stock_movement",
+        {
+            "movement_type": "TRANSFER",
+            "product_id": str(payload.product_id),
+            "from_warehouse_id": str(payload.from_warehouse_id),
+            "to_warehouse_id": str(payload.to_warehouse_id),
+            "quantity": payload.quantity,
+        },
     )
     return [out_mv, in_mv]
 
@@ -80,9 +129,25 @@ def stock_adjust(
     payload: StockAdjustmentCreate,
     current_user: ManagerUser,
     org_id: OrgID,
+    background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
-    return service.adjust(org_id=org_id, user_id=current_user.id, payload=payload)
+    movement = service.adjust(org_id=org_id, user_id=current_user.id, payload=payload)
+    background_tasks.add_task(
+        check_low_stock, org_id, payload.product_id, payload.warehouse_id
+    )
+    publish_event(
+        redis_client,
+        org_id,
+        "stock_movement",
+        {
+            "movement_type": "ADJUSTMENT",
+            "product_id": str(payload.product_id),
+            "warehouse_id": str(payload.warehouse_id),
+            "quantity": payload.quantity,
+        },
+    )
+    return movement
 
 
 # ── Read endpoints (all roles) ────────────────────────────────────────────────

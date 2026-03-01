@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ENV: str = Field(..., description="env")
+    REDIS_URL: str = Field(..., description="Redis URL")
 
     # API settings
     API_PREFIX: str = "/api"
@@ -20,7 +22,10 @@ class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = Field(..., description="database url")
     DATABASE_URL_TESTING: str = Field(..., description="test database url")
+    SENTRY_DSN: str = Field(..., description="sentry DSN")
     model_config = SettingsConfigDict(env_file=".env")
+    # Services settings
+    RESEND_API: str = Field(..., description="resend api")
 
     @property
     def API_BASE(self) -> str:
