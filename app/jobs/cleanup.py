@@ -1,13 +1,13 @@
-import logging
 from datetime import datetime, timedelta, timezone
 
+import structlog
 from sqlalchemy import and_, select
 
 from app.db.database import SessionLocal
 from app.models import PurchaseRequestStatusEnum
 from app.models.purchase_request import PurchaseRequest
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def scheduled_cleanup():
@@ -30,9 +30,9 @@ def scheduled_cleanup():
         for draft in drafts:
             db.delete(draft)
         db.commit()
-        logger.info("Deleted %d stale draft PRs", len(drafts))
+        logger.info("Deleted stale draft PRs", count=len(drafts))
     except Exception as e:
-        logger.error("Draft cleanup failed  error=%s", str(e))
+        logger.error("Draft cleanup failed", error=str(e))
 
     finally:
         db.close()

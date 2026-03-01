@@ -16,12 +16,12 @@ Usage:
 """
 
 import json
-import logging
 import uuid
 
+import structlog
 from redis import Redis
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def get_channel(org_id: uuid.UUID) -> str:
@@ -45,11 +45,8 @@ def publish_event(
     payload = json.dumps({"type": event_type, "data": data})
     try:
         redis_client.publish(channel, payload)
-        logger.info("Event published  org_id=%s  type=%s", org_id, event_type)
+        logger.info("Event published", org_id=str(org_id), type=event_type)
     except Exception as e:
         logger.error(
-            "Failed to publish event  org_id=%s  type=%s  error=%s",
-            org_id,
-            event_type,
-            str(e),
+            "Failed to publish event", org_id=str(org_id), type=event_type, error=str(e)
         )

@@ -1,6 +1,6 @@
-import logging
 import uuid
 
+import structlog
 from sqlalchemy import or_, select
 
 from app.core.redis import redis_client
@@ -14,7 +14,7 @@ from app.services.product import ProductService
 from app.services.stock_movement import StockService
 from app.services.warehouse import WarehouseService
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def check_low_stock(org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid.UUID):
@@ -23,9 +23,9 @@ def check_low_stock(org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid
 
     if not stock_levels:
         logger.info(
-            "No stock levels found  product_id=%s  warehouse_id=%s",
-            product_id,
-            warehouse_id,
+            "No stock levels found",
+            product_id=str(product_id),
+            warehouse_id=str(warehouse_id),
         )
         return
 
@@ -35,11 +35,11 @@ def check_low_stock(org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid
 
     if current_stock < product.min_stock_level:
         logger.warning(
-            "Low stock detected  product=%s  current=%d  minimum=%d  warehouse_id=%s",
-            product.name,
-            current_stock,
-            product.min_stock_level,
-            warehouse_id,
+            "Low stock detected",
+            product=product.name,
+            current=current_stock,
+            minimum=product.min_stock_level,
+            warehouse_id=str(warehouse_id),
         )
 
         q = (
@@ -76,8 +76,8 @@ def check_low_stock(org_id: uuid.UUID, product_id: uuid.UUID, warehouse_id: uuid
 
     else:
         logger.info(
-            "Stock OK  product=%s  current=%d  minimum=%d",
-            product.name,
-            current_stock,
-            product.min_stock_level,
+            "Stock OK",
+            product=product.name,
+            current=current_stock,
+            minimum=product.min_stock_level,
         )

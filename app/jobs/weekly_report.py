@@ -1,6 +1,6 @@
-import logging
 from datetime import datetime, timedelta, timezone
 
+import structlog
 from sqlalchemy import and_, func, or_, select
 
 from app.db.database import SessionLocal
@@ -14,7 +14,7 @@ from app.models.user import User
 from app.services.email import send_weekly_report
 from app.services.stock_movement import StockService
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def weekly_report():

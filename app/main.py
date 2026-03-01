@@ -1,22 +1,22 @@
-import logging
 from contextlib import asynccontextmanager
-from typing import Annotated
 
+import structlog
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 from apscheduler.triggers.cron import CronTrigger  # type: ignore
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # from fastapi.security import OAuth2PasswordBearer
 from app.api.v1.router import router
 from app.core.config import settings
-from app.core.dependencies import get_current_active_user
-from app.db.database import DB
+from app.core.limiter import limiter
+from app.core.logger import setup_logging
 from app.jobs.cleanup import scheduled_cleanup
 from app.jobs.weekly_report import weekly_report
-from app.models import Organization, User
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+setup_logging()
+logger = structlog.get_logger()
 
 scheduler = BackgroundScheduler()
 
@@ -45,29 +45,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     root_path="/api/v1",
-    docs_url="/docs" if settings.ENV == "development" else None,
-    redoc_url="/redoc" if settings.ENV == "development" else None,
-    openapi_url="/openapi.json" if settings.ENV == "development" else None,
+    docs_url="/docs"
+    if settings.ENV == "development" or settings.ENV == "testing"
+    else None,
+    redoc_url="/redoc"
+    if settings.ENV == "development" or settings.ENV == "testing"
+    else None,
+    openapi_url="/openapi.json"
+    if settings.ENV == "development" or settings.ENV == "testing"
+    else None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.include_router(router)
 
 
-@app.get("/settings")
-def get_info():
-    return settings
-
-
-@app.get("/orgs/{org_id}")
-def get_organization(
-    org_id: str, current_user: Annotated[User, Depends(get_current_active_user)], db: DB
-):
-    if not current_user:
-        raise HTTPException(status_code=404, detail="user not")
-
-    if not current_user.email == "hod":
-        raise HTTPException(status_code=404, detail="user not hod")
-
-    org = db.query(Organization).filter(Organization.id == org_id).first()
-    if not org:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    return org
+@app.get("/health-check")
+def health_check():
+    return {"server": "on"}

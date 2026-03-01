@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.core.security import get_password_hash, verify_password
-from app.db import DB
+from app.db.database import DB
 from app.models import RoleEnum, User
 from app.models.organization import Organization
 from app.schemas.audit_log import AuditLogCreate

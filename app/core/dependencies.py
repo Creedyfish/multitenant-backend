@@ -6,7 +6,7 @@ from jwt.exceptions import InvalidTokenError
 
 from app.core.config import settings
 from app.core.security import oauth2_scheme
-from app.db import DB
+from app.db.database import DB
 from app.models import User
 from app.schemas import TokenData
 from app.services.user import UserService

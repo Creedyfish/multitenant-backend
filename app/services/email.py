@@ -1,6 +1,5 @@
-import logging
-
 import resend
+import structlog
 
 from app.core.dependencies import settings
 from app.models.purchase_request import PurchaseRequest
@@ -8,7 +7,8 @@ from app.schemas.stock_movement import StockLevelOut
 
 resend.api_key = settings.RESEND_API
 
-logger = logging.getLogger(__name__)
+
+logger = structlog.get_logger()
 
 
 def send_low_stock_alert(
@@ -39,14 +39,10 @@ def send_low_stock_alert(
         logger.info("low stock alert sending")
         resend.Emails.send(params)
         logger.info(
-            "Low stock alert sent  product=%s  recipients=%d",
-            product_name,
-            len(recipients),
+            "Low stock alert sent", product=product_name, recipients=len(recipients)
         )
     except Exception as e:
-        logger.error(
-            "Low stock alert failed  product=%s  error=%s", product_name, str(e)
-        )
+        logger.error("Low stock alert failed", product=product_name, error=str(e))
 
 
 def send_weekly_report(
@@ -103,10 +99,8 @@ def send_weekly_report(
 """,
     }
     try:
-        logger.info("Weekly report sending  org=%s", org_name)
+        logger.info("Weekly report sending", org=org_name)
         resend.Emails.send(params)
-        logger.info(
-            "Weekly report sent  org=%s  recipients=%d", org_name, len(recipients)
-        )
+        logger.info("Weekly report sent", org=org_name, recipients=len(recipients))
     except Exception as e:
-        logger.error("Weekly report failed  org=%s  error=%s", org_name, str(e))
+        logger.error("Weekly report failed", org=org_name, error=str(e))

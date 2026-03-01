@@ -17,10 +17,10 @@ Testing in terminal:
 
 import asyncio
 import json
-import logging
 import uuid
 from typing import Annotated, AsyncGenerator
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
@@ -30,7 +30,8 @@ from app.middleware.tenant import OrgID
 from app.models.user import User
 from app.services.event_publisher import get_channel
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
+
 
 router = APIRouter()
 
@@ -46,7 +47,7 @@ async def event_stream(
     channel = get_channel(org_id)
     pubsub = redis_client.pubsub()
     pubsub.subscribe(channel)
-    logger.info("SSE client connected  org_id=%s", org_id)
+    logger.info("SSE client connected", org_id=str(org_id))
 
     try:
         # Send an initial ping so the client knows the connection is live
@@ -55,7 +56,7 @@ async def event_stream(
         while True:
             # Check if client disconnected
             if await request.is_disconnected():
-                logger.info("SSE client disconnected  org_id=%s", org_id)
+                logger.info("SSE client disconnected", org_id=str(org_id))
                 break
 
             # get_message is non-blocking — returns None if nothing waiting
@@ -71,7 +72,7 @@ async def event_stream(
                     data = json.dumps(parsed.get("data", {}))
                     yield f"event: {event_type}\ndata: {data}\n\n"
                 except (json.JSONDecodeError, KeyError):
-                    logger.warning("Malformed event payload  raw=%s", raw)
+                    logger.warning("Malformed event payload", raw=raw)
 
             # Small sleep to avoid a tight loop burning CPU
             await asyncio.sleep(0.1)
@@ -79,7 +80,7 @@ async def event_stream(
     finally:
         pubsub.unsubscribe(channel)
         pubsub.close()
-        logger.info("SSE subscription closed  org_id=%s", org_id)
+        logger.info("SSE subscription closed", org_id=str(org_id))
 
 
 @router.get("")
