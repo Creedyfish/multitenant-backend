@@ -32,3 +32,10 @@ class ProductRead(ProductBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedProducts(BaseModel):
+    items: list[ProductRead]
+    total: int
+    limit: int
+    offset: int
