@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     API_VERSION: str = "v1"
     PROJECT_NAME: str = "My API"
     DEBUG: bool = False
+    CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"])
 
     # Database settings
     DATABASE_URL: str = Field(..., description="database url")
