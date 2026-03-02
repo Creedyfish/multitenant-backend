@@ -8,7 +8,12 @@ from app.db.database import DB
 from app.middleware.rbac import require_role
 from app.models.enums import RoleEnum
 from app.models.user import User
-from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
+from app.schemas.product import (
+    PaginatedProducts,
+    ProductCreate,
+    ProductRead,
+    ProductUpdate,
+)
 from app.services.product import ProductService
 
 router = APIRouter()
@@ -25,14 +30,18 @@ def create_product(
     return ProductService(db).create(current_user.org_id, current_user.id, payload)
 
 
-@router.get("/", response_model=list[ProductRead])
+@router.get("/", response_model=PaginatedProducts)
 def get_products(
     db: DB,
     current_user: Annotated[User, Depends(get_current_active_user)],
     search: str | None = None,
     category: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
 ):
-    return ProductService(db).get_all(current_user.org_id, search, category)
+    return ProductService(db).get_all(
+        current_user.org_id, search, category, limit, offset
+    )
 
 
 @router.get("/{product_id}", response_model=ProductRead)

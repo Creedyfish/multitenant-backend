@@ -5,6 +5,7 @@ import structlog
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 from apscheduler.triggers.cron import CronTrigger  # type: ignore
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -63,11 +64,18 @@ app = FastAPI(
     if settings.ENV == "development" or settings.ENV == "testing"
     else None,
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.include_router(router)
 
 
-@app.get("/health-check")
+@app.get("/health")
 def health_check():
-    return {"server": "on"}
+    return True

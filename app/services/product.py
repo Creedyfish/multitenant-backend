@@ -1,12 +1,16 @@
 import uuid
+from typing import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.database import DB
 from app.models.product import Product
 from app.schemas.audit_log import AuditLogCreate
-from app.schemas.product import ProductCreate, ProductUpdate
+from app.schemas.product import (
+    ProductCreate,
+    ProductUpdate,
+)
 from app.services.audit_log import AuditService
 
 
@@ -16,8 +20,13 @@ class ProductService:
         self.audit = AuditService(db)
 
     def get_all(
-        self, org_id: uuid.UUID, search: str | None = None, category: str | None = None
-    ):
+        self,
+        org_id: uuid.UUID,
+        search: str | None = None,
+        category: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, int | str | Sequence[Product]]:
         query = select(Product).where(Product.org_id == org_id)
 
         if search:
@@ -25,7 +34,13 @@ class ProductService:
         if category:
             query = query.where(Product.category == category)
 
-        return self.db.execute(query).scalars().all()
+        total = self.db.execute(
+            select(func.count()).select_from(query.subquery())
+        ).scalar_one()
+
+        items = self.db.execute(query.limit(limit).offset(offset)).scalars().all()
+
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
 
     def get_by_id(self, org_id: uuid.UUID, product_id: uuid.UUID):
         product = self.db.execute(
