@@ -84,7 +84,7 @@ class TestProductIsolation:
         """Listing products as Org A should never return Org B's products."""
         response = client.get("/products/", headers=headers_a)
         assert response.status_code == 200
-        ids = [p["id"] for p in response.json()]
+        ids = [p["id"] for p in response.json()["items"]]  # ← add ["items"]
         assert str(product_in_org_b.id) not in ids
 
     def test_user_a_cannot_fetch_org_b_product_by_id(
@@ -131,12 +131,11 @@ class TestProductIsolation:
         resp_a = client.get("/products/", headers=headers_a)
         resp_b = client.get("/products/", headers=headers_b)
 
-        ids_a = {p["id"] for p in resp_a.json()}
-        ids_b = {p["id"] for p in resp_b.json()}
+        ids_a = {p["id"] for p in resp_a.json()["items"]}  # ← add ["items"]
+        ids_b = {p["id"] for p in resp_b.json()["items"]}  # ← add ["items"]
 
         assert str(product_in_org_a.id) in ids_a
         assert str(product_in_org_b.id) not in ids_a
-
         assert str(product_in_org_b.id) in ids_b
         assert str(product_in_org_a.id) not in ids_b
 

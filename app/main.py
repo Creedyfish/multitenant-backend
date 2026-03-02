@@ -76,6 +76,6 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 app.include_router(router)
 
 
-@app.get("/health-check")
+@app.get("/health")
 def health_check():
-    return {"server": "on"}
+    return True
