@@ -16,10 +16,10 @@ def get_subdomain_from_host(request: Request) -> str | None:
 
 
 def get_tenant(request: Request) -> str | None:
-    subdomain = get_subdomain_from_host(request)
-    if subdomain:
-        return subdomain
-    return request.headers.get("x-tenant-id")
+    tenant = request.headers.get("x-tenant-id")
+    if tenant:
+        return tenant
+    return get_subdomain_from_host(request)
 
 
 def get_current_tenant(
