@@ -15,8 +15,10 @@ Run with:
 import uuid
 from unittest.mock import patch
 
+import pytest
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import settings
 from app.jobs.low_stock import check_low_stock
 from app.models.enums import RoleEnum, StockMovementTypeEnum
 from app.models.product import Product
@@ -88,6 +90,7 @@ def add_stock_movement(
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(settings.ENV == "testing", reason="Skips real email in CI")
 def test_low_stock_sends_real_email(db: Session):
     """
     REAL EMAIL TEST — check your inbox at ielbanbuenawork@gmail.com.
