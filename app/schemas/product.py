@@ -1,4 +1,3 @@
-# schemas/product.py
 from datetime import datetime
 from uuid import UUID
 
@@ -39,3 +38,5 @@ class PaginatedProducts(BaseModel):
     total: int
     limit: int
     offset: int
+
+    model_config = ConfigDict(from_attributes=True)
