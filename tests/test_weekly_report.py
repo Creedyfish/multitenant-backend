@@ -14,9 +14,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import settings
 from app.db.database import DB
 from app.jobs.weekly_report import weekly_report
 from app.models.enums import PurchaseRequestStatusEnum, RoleEnum, StockMovementTypeEnum
@@ -105,6 +107,7 @@ def make_purchase_request(
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(settings.ENV == "testing", reason="Skips real email in CI")
 def test_weekly_report_sends_real_email(db: Session):
     """
     REAL EMAIL TEST — check inbox at ielbanbuenawork@gmail.com.
