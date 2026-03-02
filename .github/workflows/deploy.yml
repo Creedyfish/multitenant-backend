@@ -24,7 +24,7 @@ jobs:
           echo "RESEND_API=${{ secrets.RESEND_API }}" >> .env
           echo "REDIS_URL=redis://redis:6379" >> .env
           echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env
-          echo "CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}" >> .env
+          echo 'CORS_ORIGINS=["http://localhost:3000"]' >> .env
 
       - name: Run tests
         run: |
