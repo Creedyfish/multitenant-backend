@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, Request
 from app.core.dependencies import get_current_active_user
 from app.core.limiter import limiter
 from app.db.database import DB
-from app.middleware.tenant import OrgID
 from app.models import RoleEnum, User
 from app.schemas.user import (
     RegisterRequest,
@@ -80,13 +79,12 @@ def get_me(current_user: CurrentUser):
 def update_me(
     payload: UserUpdateSelf,  # role excluded — users cannot promote themselves
     current_user: CurrentUser,
-    org_id: OrgID,
     service: UserService = Depends(get_service),
 ):
     # Convert UserUpdateSelf to UserUpdate before passing to service.update
     user_update = UserUpdate(**payload.model_dump())
     return service.update(
-        org_id=org_id,
+        org_id=current_user.org_id,
         user_id=current_user.id,
         actor_id=current_user.id,
         payload=user_update,
@@ -100,11 +98,10 @@ def update_me(
 def change_my_password(
     payload: UserUpdatePassword,
     current_user: CurrentUser,
-    org_id: OrgID,
     service: UserService = Depends(get_service),
 ):
     return service.change_password(
-        org_id=org_id,
+        org_id=current_user.org_id,
         user_id=current_user.id,
         payload=payload,
     )
@@ -114,15 +111,14 @@ def change_my_password(
 
 
 @router.get(
-    "/",
+    "",
     response_model=list[UserRead],
 )
 def list_users(
-    _: AdminUser,
-    org_id: OrgID,
+    current_user: AdminUser,
     service: UserService = Depends(get_service),
 ):
-    return service.get_all(org_id)
+    return service.get_all(current_user.org_id)
 
 
 @router.get(
@@ -131,26 +127,24 @@ def list_users(
 )
 def get_user(
     user_id: uuid.UUID,
-    _: AdminUser,
-    org_id: OrgID,
+    current_user: AdminUser,
     service: UserService = Depends(get_service),
 ):
-    return service.get_by_id(org_id, user_id)
+    return service.get_by_id(current_user.org_id, user_id)
 
 
 @router.post(
-    "/",
+    "",
     response_model=UserRead,
     status_code=201,
 )
 def create_user(
     payload: UserCreate,
     current_user: AdminUser,
-    org_id: OrgID,
     service: UserService = Depends(get_service),
 ):
     return service.create(
-        org_id=org_id,
+        org_id=current_user.org_id,
         actor_id=current_user.id,
         payload=payload,
     )
@@ -164,11 +158,10 @@ def update_user(
     user_id: uuid.UUID,
     payload: UserUpdate,  # role included — admins can change roles
     current_user: AdminUser,
-    org_id: OrgID,
     service: UserService = Depends(get_service),
 ):
     return service.update(
-        org_id=org_id,
+        org_id=current_user.org_id,
         user_id=user_id,
         actor_id=current_user.id,
         payload=payload,
@@ -182,11 +175,10 @@ def update_user(
 def delete_user(
     user_id: uuid.UUID,
     current_user: AdminUser,
-    org_id: OrgID,
     service: UserService = Depends(get_service),
 ):
     service.delete(
-        org_id=org_id,
+        org_id=current_user.org_id,
         user_id=user_id,
         actor_id=current_user.id,
     )

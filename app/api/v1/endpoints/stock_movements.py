@@ -49,13 +49,14 @@ ManagerUser = Annotated[User, Depends(require_manager)]
 def stock_in(
     payload: StockInCreate,
     current_user: ManagerUser,
-    org_id: OrgID,
     service: StockService = Depends(get_service),
 ):
-    movement = service.stock_in(org_id=org_id, user_id=current_user.id, payload=payload)
+    movement = service.stock_in(
+        org_id=current_user.org_id, user_id=current_user.id, payload=payload
+    )
     publish_event(
         redis_client,
-        org_id,
+        current_user.org_id,
         "stock_movement",
         {
             "movement_type": "IN",
@@ -71,19 +72,18 @@ def stock_in(
 def stock_out(
     payload: StockOutCreate,
     current_user: ManagerUser,
-    org_id: OrgID,
     background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
     movement = service.stock_out(
-        org_id=org_id, user_id=current_user.id, payload=payload
+        org_id=current_user.org_id, user_id=current_user.id, payload=payload
     )
     background_tasks.add_task(
-        check_low_stock, org_id, payload.product_id, payload.warehouse_id
+        check_low_stock, current_user.org_id, payload.product_id, payload.warehouse_id
     )
     publish_event(
         redis_client,
-        org_id,
+        current_user.org_id,
         "stock_movement",
         {
             "movement_type": "OUT",
@@ -99,19 +99,21 @@ def stock_out(
 def stock_transfer(
     payload: StockTransferCreate,
     current_user: ManagerUser,
-    org_id: OrgID,
     background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
     out_mv, in_mv = service.transfer(
-        org_id=org_id, user_id=current_user.id, payload=payload
+        org_id=current_user.org_id, user_id=current_user.id, payload=payload
     )
     background_tasks.add_task(
-        check_low_stock, org_id, payload.product_id, payload.from_warehouse_id
+        check_low_stock,
+        current_user.org_id,
+        payload.product_id,
+        payload.from_warehouse_id,
     )
     publish_event(
         redis_client,
-        org_id,
+        current_user.org_id,
         "stock_movement",
         {
             "movement_type": "TRANSFER",
@@ -128,17 +130,18 @@ def stock_transfer(
 def stock_adjust(
     payload: StockAdjustmentCreate,
     current_user: ManagerUser,
-    org_id: OrgID,
     background_tasks: BackgroundTasks,
     service: StockService = Depends(get_service),
 ):
-    movement = service.adjust(org_id=org_id, user_id=current_user.id, payload=payload)
+    movement = service.adjust(
+        org_id=current_user.org_id, user_id=current_user.id, payload=payload
+    )
     background_tasks.add_task(
-        check_low_stock, org_id, payload.product_id, payload.warehouse_id
+        check_low_stock, current_user.org_id, payload.product_id, payload.warehouse_id
     )
     publish_event(
         redis_client,
-        org_id,
+        current_user.org_id,
         "stock_movement",
         {
             "movement_type": "ADJUSTMENT",
@@ -155,7 +158,6 @@ def stock_adjust(
 
 @router.get("/ledger", response_model=list[StockMovementOut])
 def get_ledger(
-    _current_user: Annotated[User, Depends(get_current_active_user)],
     org_id: OrgID,
     service: StockService = Depends(get_service),
     product_id: uuid.UUID | None = Query(None),
@@ -180,7 +182,6 @@ def get_ledger(
 
 @router.get("/levels", response_model=list[StockLevelOut])
 def get_stock_levels(
-    _: Annotated[User, Depends(get_current_active_user)],
     org_id: OrgID,
     service: StockService = Depends(get_service),
     product_id: uuid.UUID | None = Query(None),

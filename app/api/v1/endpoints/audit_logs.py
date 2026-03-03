@@ -1,13 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.core.dependencies import get_current_active_user
 from app.db.database import DB
 from app.middleware.tenant import OrgID
-from app.models.user import User
 from app.schemas.audit_log import AuditLogOut
 from app.services.audit_log import AuditService
 
@@ -18,9 +15,8 @@ def get_service(db: DB) -> AuditService:
     return AuditService(db)
 
 
-@router.get("/", response_model=list[AuditLogOut])
+@router.get("", response_model=list[AuditLogOut])
 def list_audit_logs(
-    _: Annotated[User, Depends(get_current_active_user)],
     org_id: OrgID,
     service: AuditService = Depends(get_service),
     entity: str | None = Query(None, description="e.g. Product, PurchaseRequest"),
@@ -48,7 +44,6 @@ def list_audit_logs(
 @router.get("/{audit_id}", response_model=AuditLogOut)
 def get_audit_log(
     audit_id: uuid.UUID,
-    _: Annotated[User, Depends(get_current_active_user)],
     org_id: OrgID,
     service: AuditService = Depends(get_service),
 ):
