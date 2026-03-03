@@ -23,7 +23,7 @@ def get_service(db: DB) -> PurchaseRequestService:
     return PurchaseRequestService(db)
 
 
-@router.post("/", response_model=PurchaseRequestOut, status_code=201)
+@router.post("", response_model=PurchaseRequestOut, status_code=201)
 def create_purchase_request(
     payload: PurchaseRequestCreate,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -36,7 +36,7 @@ def create_purchase_request(
     )
 
 
-@router.get("/", response_model=list[PurchaseRequestListOut])
+@router.get("", response_model=list[PurchaseRequestListOut])
 def list_purchase_requests(
     current_user: Annotated[User, Depends(get_current_active_user)],
     status: PurchaseRequestStatusEnum | None = Query(None),

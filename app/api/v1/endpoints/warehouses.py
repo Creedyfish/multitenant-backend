@@ -14,7 +14,7 @@ from app.services.warehouse import WarehouseService
 router = APIRouter()
 
 
-@router.post("/", response_model=WarehouseRead, status_code=201)
+@router.post("", response_model=WarehouseRead, status_code=201)
 def create_warehouse(
     payload: WarehouseCreate,
     db: DB,
@@ -25,7 +25,7 @@ def create_warehouse(
     return WarehouseService(db).create(current_user.org_id, current_user.id, payload)
 
 
-@router.get("/", response_model=list[WarehouseRead])
+@router.get("", response_model=list[WarehouseRead])
 def get_warehouses(
     db: DB, current_user: Annotated[User, Depends(get_current_active_user)]
 ):

@@ -18,16 +18,14 @@ Testing in terminal:
 import asyncio
 import json
 import uuid
-from typing import Annotated, AsyncGenerator
+from typing import AsyncGenerator
 
 import structlog
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.dependencies import get_current_active_user
 from app.core.redis import redis_client
 from app.middleware.tenant import OrgID
-from app.models.user import User
 from app.services.event_publisher import get_channel
 
 logger = structlog.get_logger()
@@ -87,7 +85,6 @@ async def event_stream(
 async def sse_events(
     request: Request,
     org_id: OrgID,
-    _current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     """
     Connect to this endpoint to receive real-time events for your org.

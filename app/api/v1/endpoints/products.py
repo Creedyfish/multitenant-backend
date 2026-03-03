@@ -26,7 +26,7 @@ from app.services.product import ProductService
 router = APIRouter()
 
 
-@router.post("/", response_model=ProductRead, status_code=201)
+@router.post("", response_model=ProductRead, status_code=201)
 def create_product(
     payload: ProductCreate,
     db: DB,
@@ -39,7 +39,7 @@ def create_product(
     return result  # type: ignore[return-value]
 
 
-@router.get("/", response_model=PaginatedProducts)
+@router.get("", response_model=PaginatedProducts)
 def get_products(
     db: DB,
     current_user: Annotated[User, Depends(get_current_active_user)],

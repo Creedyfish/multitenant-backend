@@ -14,7 +14,7 @@ from app.services.supplier import SupplierService
 router = APIRouter()
 
 
-@router.post("/", response_model=SupplierRead, status_code=201)
+@router.post("", response_model=SupplierRead, status_code=201)
 def create_supplier(
     payload: SupplierCreate,
     db: DB,
@@ -25,7 +25,7 @@ def create_supplier(
     return SupplierService(db).create(current_user.org_id, current_user.id, payload)
 
 
-@router.get("/", response_model=list[SupplierRead])
+@router.get("", response_model=list[SupplierRead])
 def get_suppliers(
     db: DB, current_user: Annotated[User, Depends(get_current_active_user)]
 ):

@@ -34,7 +34,7 @@ def require_admin(current_user: CurrentUser) -> User:
 AdminUser = Annotated[User, Depends(require_admin)]
 
 
-@router.post("/", response_model=OrganizationRead, status_code=201)
+@router.post("", response_model=OrganizationRead, status_code=201)
 def create_organization(
     payload: OrganizationCreate,
     service: OrganizationService = Depends(get_service),
@@ -45,7 +45,6 @@ def create_organization(
 
 @router.get("/me", response_model=OrganizationRead)
 def get_my_organization(
-    current_user: CurrentUser,
     org_id: OrgID,
     service: OrganizationService = Depends(get_service),
 ):
@@ -56,8 +55,7 @@ def get_my_organization(
 def update_my_organization(
     payload: OrganizationUpdate,
     current_user: AdminUser,
-    org_id: OrgID,
     service: OrganizationService = Depends(get_service),
 ):
     """Only admins can update their organization details."""
-    return service.update(org_id, payload)
+    return service.update(current_user.org_id, payload)
