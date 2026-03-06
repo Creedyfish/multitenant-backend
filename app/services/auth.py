@@ -108,14 +108,14 @@ def refresh(db: DB, refresh_token: str):
     org_subdomain = payload.get("subdomain")
     org_id = payload.get("org_id")
     role = payload.get("role")
-    # 2. get user
+
     if not user_email or not isinstance(user_email, str):
         raise HTTPException(status_code=401, detail="Invalid token claims")
+
     user = UserService(db).get_by_email(user_email, org_subdomain)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # 3. check token exists in DB and is not expired
     token = get_refresh_token(db, user.id, refresh_token)
     if not token:
         raise HTTPException(status_code=401, detail="Refresh token not found")
@@ -123,7 +123,24 @@ def refresh(db: DB, refresh_token: str):
     if token.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
-    # 4. issue new access token
+    # Delete the old token (rotation — old token is now consumed)
+    db.delete(token)
+    db.commit()
+
+    # Issue new access token + new refresh token
+    refresh_token_expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    new_refresh_token = create_refresh_token(
+        data={
+            "sub": user_email,
+            "org_id": org_id,
+            "role": role,
+            "org": org_name,
+            "subdomain": org_subdomain,
+        },
+        delta=refresh_token_expires_delta,
+    )
+    add_refresh_token(user.id, new_refresh_token, refresh_token_expires_delta, db=db)
+
     access_token = create_access_token(
         data={
             "sub": user_email,
@@ -133,4 +150,10 @@ def refresh(db: DB, refresh_token: str):
             "subdomain": org_subdomain,
         }
     )
-    return access_token
+
+    return access_token, new_refresh_token  # ← now returns both
+
+
+def revoke_refresh_token(db: DB, token: str) -> None:
+    db.query(RefreshToken).filter(RefreshToken.token == token).delete()
+    db.commit()
