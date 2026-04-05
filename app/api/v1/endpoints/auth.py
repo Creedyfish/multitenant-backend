@@ -52,7 +52,14 @@ async def login_for_access_token(
 
     token = Token(access_token=access_token, token_type="bearer")
     response = JSONResponse(content=token.model_dump())
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        samesite="none",
+        secure=True,
+        max_age=60 * 60 * 24 * 7,  # 7 days
+    )
     return response
 
 
@@ -70,7 +77,14 @@ async def refresh_access_token(request: Request, db: DB) -> JSONResponse:
     token = Token(access_token=access_token, token_type="bearer")
     response = JSONResponse(content=token.model_dump())
     # Set the new rotated refresh token as the cookie
-    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        samesite="none",
+        secure=True,
+        max_age=60 * 60 * 24 * 7,
+    )
     return response
 
 
