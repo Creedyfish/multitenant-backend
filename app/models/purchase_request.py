@@ -24,13 +24,21 @@ class PurchaseRequest(Base):
     status: Mapped[PurchaseRequestStatusEnum] = mapped_column(
         SQLEnum(PurchaseRequestStatusEnum), default=PurchaseRequestStatusEnum.DRAFT
     )
-    created_by: Mapped[uuid.UUID]  # User ID
-    approved_by: Mapped[uuid.UUID | None]  # User ID
+    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), default=None
+    )
     approved_at: Mapped[datetime | None]
-    rejected_by: Mapped[uuid.UUID | None]  # User ID
+    rejected_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), default=None
+    )
     rejected_at: Mapped[datetime | None]
     rejection_reason: Mapped[str | None] = mapped_column(Text, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
+    received_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"), default=None
+    )
+    received_at: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("NOW()")
     )
@@ -41,7 +49,10 @@ class PurchaseRequest(Base):
     # Relationships
     organization = relationship("Organization", back_populates="purchase_requests")
     items = relationship("PurchaseRequestItem", back_populates="request")
-
+    creator = relationship("User", foreign_keys=[created_by])
+    approver = relationship("User", foreign_keys=[approved_by])
+    rejector = relationship("User", foreign_keys=[rejected_by])
+    receiver = relationship("User", foreign_keys=[received_by])
     __table_args__ = (
         Index(
             "idx_purchase_request_org_number", "org_id", "request_number", unique=True
@@ -65,8 +76,12 @@ class PurchaseRequestItem(Base):
     supplier_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("suppliers.id"), default=None
     )
+    warehouse_id: Mapped[uuid.UUID | None] = mapped_column(  # ← add
+        ForeignKey("warehouses.id"), default=None
+    )
 
     # Relationships
     request = relationship("PurchaseRequest", back_populates="items")
+    product = relationship("Product", foreign_keys=[product_id])
 
     __table_args__ = (Index("idx_purchase_request_item_request", "request_id"),)

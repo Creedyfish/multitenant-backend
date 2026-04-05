@@ -2,7 +2,7 @@ import uuid
 from typing import Sequence
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.db.database import DB
 from app.models.product import Product
@@ -30,7 +30,12 @@ class ProductService:
         query = select(Product).where(Product.org_id == org_id)
 
         if search:
-            query = query.where(Product.name.ilike(f"%{search}%"))
+            query = query.where(
+                or_(
+                    Product.name.ilike(f"%{search}%"),
+                    Product.sku.ilike(f"%{search}%"),
+                )
+            )
         if category:
             query = query.where(Product.category == category)
 

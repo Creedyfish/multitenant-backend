@@ -11,6 +11,7 @@ from app.schemas.purchase_request import (
     PurchaseRequestCreate,
     PurchaseRequestListOut,
     PurchaseRequestOut,
+    PurchaseRequestReceive,
     PurchaseRequestReject,
     PurchaseRequestUpdate,
 )
@@ -139,4 +140,20 @@ def mark_ordered(
         request_id=request_id,
         user_id=current_user.id,
         user_role=current_user.role,
+    )
+
+
+@router.post("/{request_id}/receive", response_model=PurchaseRequestOut)
+def receive_purchase_request(
+    request_id: uuid.UUID,
+    body: PurchaseRequestReceive,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    service: PurchaseRequestService = Depends(get_service),
+):
+    return service.receive(
+        org_id=current_user.org_id,
+        request_id=request_id,
+        user_id=current_user.id,
+        user_role=current_user.role,
+        payload=body,
     )

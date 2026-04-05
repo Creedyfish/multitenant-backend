@@ -11,7 +11,7 @@ from app.core.limiter import limiter
 from app.db.database import DB
 from app.middleware.tenant import get_tenant
 from app.schemas import Token
-from app.services.auth import login, refresh
+from app.services.auth import login, refresh, revoke_refresh_token
 from app.services.user import UserService
 
 router = APIRouter()
@@ -63,7 +63,30 @@ async def refresh_access_token(request: Request, db: DB) -> JSONResponse:
         logger.warning("Refresh attempted with no token")
         raise HTTPException(status_code=401, detail="No refresh token")
 
-    access_token = refresh(db, refresh_token)
+    # Now unpacks both tokens
+    access_token, new_refresh_token = refresh(db, refresh_token)
     logger.info("Token refreshed successfully")
+
     token = Token(access_token=access_token, token_type="bearer")
-    return JSONResponse(content=token.model_dump())
+    response = JSONResponse(content=token.model_dump())
+    # Set the new rotated refresh token as the cookie
+    response.set_cookie(key="refresh_token", value=new_refresh_token, httponly=True)
+    return response
+
+
+@router.post("/logout")
+async def logout(request: Request, db: DB) -> JSONResponse:
+    refresh_token = request.cookies.get("refresh_token")
+
+    if refresh_token:
+        try:
+            revoke_refresh_token(db, refresh_token)
+        except Exception:
+            pass  # Cookie still gets cleared regardless
+
+    logger.info("User logged out")
+    response = JSONResponse(
+        content={"success": True, "message": "Logged out successfully"}
+    )
+    response.delete_cookie(key="refresh_token", httponly=True)
+    return response

@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     auth,
     events,
     items,
+    organizations,
     products,
     purchase_requests,
     stock_movements,
@@ -39,3 +40,7 @@ router.include_router(
 router.include_router(audit_logs.router, prefix="/audit_logs", tags=["audit_logs"])
 
 router.include_router(events.router, prefix="/events", tags=["events"])
+
+router.include_router(
+    organizations.router, prefix="/organizations", tags=["organizations"]
+)

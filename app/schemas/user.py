@@ -17,7 +17,6 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    org_id: UUID
     password: str
     full_name: str
 

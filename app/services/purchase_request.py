@@ -6,10 +6,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.db.database import DB
-from app.models.enums import PurchaseRequestStatusEnum, RoleEnum
+from app.models.enums import PurchaseRequestStatusEnum, RoleEnum, StockMovementTypeEnum
 from app.models.purchase_request import PurchaseRequest, PurchaseRequestItem
+from app.models.stock_movement import StockMovement
 from app.schemas.audit_log import AuditLogCreate
-from app.schemas.purchase_request import PurchaseRequestCreate, PurchaseRequestUpdate
+from app.schemas.purchase_request import (
+    PurchaseRequestCreate,
+    PurchaseRequestReceive,
+    PurchaseRequestUpdate,
+)
 from app.services.audit_log import AuditService
 
 # ── State machine ─────────────────────────────────────────────────────────────
@@ -22,12 +27,14 @@ TRANSITIONS: dict[PurchaseRequestStatusEnum, list[PurchaseRequestStatusEnum]] = 
     ],
     PurchaseRequestStatusEnum.APPROVED: [PurchaseRequestStatusEnum.ORDERED],
     PurchaseRequestStatusEnum.REJECTED: [],
-    PurchaseRequestStatusEnum.ORDERED: [],
+    PurchaseRequestStatusEnum.ORDERED: [PurchaseRequestStatusEnum.RECEIVED],
+    PurchaseRequestStatusEnum.RECEIVED: [],
 }
 
 MANAGER_ONLY_TRANSITIONS = {
     PurchaseRequestStatusEnum.APPROVED,
     PurchaseRequestStatusEnum.REJECTED,
+    PurchaseRequestStatusEnum.RECEIVED,
 }
 
 
@@ -65,7 +72,15 @@ class PurchaseRequestService:
                 PurchaseRequest.id == request_id,
                 PurchaseRequest.org_id == org_id,
             )
-            .options(selectinload(PurchaseRequest.items))
+            .options(
+                selectinload(PurchaseRequest.items).selectinload(
+                    PurchaseRequestItem.product
+                ),
+                selectinload(PurchaseRequest.creator),
+                selectinload(PurchaseRequest.approver),
+                selectinload(PurchaseRequest.rejector),
+                selectinload(PurchaseRequest.receiver),
+            )
         ).scalar_one_or_none()
 
         if pr is None:
@@ -100,6 +115,8 @@ class PurchaseRequestService:
             "rejected_by": str(pr.rejected_by) if pr.rejected_by else None,
             "rejected_at": pr.rejected_at.isoformat() if pr.rejected_at else None,
             "rejection_reason": pr.rejection_reason,
+            "received_by": str(pr.received_by) if pr.received_by else None,
+            "received_at": pr.received_at.isoformat() if pr.received_at else None,
             "items": [
                 {
                     "product_id": str(item.product_id),
@@ -108,6 +125,9 @@ class PurchaseRequestService:
                     if item.estimated_price is not None
                     else None,
                     "supplier_id": str(item.supplier_id) if item.supplier_id else None,
+                    "warehouse_id": str(item.warehouse_id)
+                    if item.warehouse_id
+                    else None,
                 }
                 for item in pr.items
             ],
@@ -124,7 +144,16 @@ class PurchaseRequestService:
         skip: int = 0,
         limit: int = 20,
     ) -> list[PurchaseRequest]:
-        q = select(PurchaseRequest).where(PurchaseRequest.org_id == org_id)
+        q = (
+            select(PurchaseRequest)
+            .where(PurchaseRequest.org_id == org_id)
+            .options(
+                selectinload(PurchaseRequest.items),
+                selectinload(PurchaseRequest.creator),  # ← add
+                selectinload(PurchaseRequest.approver),  # ← add
+                selectinload(PurchaseRequest.rejector),  # ← add
+            )
+        )
 
         if user_role == RoleEnum.STAFF:
             q = q.where(PurchaseRequest.created_by == user_id)
@@ -356,6 +385,70 @@ class PurchaseRequestService:
             AuditLogCreate(
                 actor_id=user_id,
                 action="MARK_ORDERED",
+                entity="PurchaseRequest",
+                entity_id=str(pr.id),
+                before=before,
+                after=self._snapshot(pr),
+            ),
+        )
+
+        self.db.commit()
+        self.db.refresh(pr)
+        return pr
+
+    def receive(
+        self,
+        org_id: uuid.UUID,
+        request_id: uuid.UUID,
+        user_id: uuid.UUID,
+        user_role: RoleEnum,
+        payload: PurchaseRequestReceive,
+    ) -> PurchaseRequest:
+        pr = self._get_or_404(request_id, org_id)
+        self._assert_transition(
+            pr.status, PurchaseRequestStatusEnum.RECEIVED, user_role
+        )
+
+        # Build lookup: item_id → warehouse_id from payload
+        warehouse_map = {entry.item_id: entry.warehouse_id for entry in payload.items}
+
+        # Validate every item is covered
+        for item in pr.items:
+            if item.id not in warehouse_map:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Missing warehouse for item {item.id} ({item.product_id}).",
+                )
+
+        before = self._snapshot(pr)
+
+        # Persist warehouse_id on each item + create stock IN movements
+        for item in pr.items:
+            wh_id = warehouse_map[item.id]
+            item.warehouse_id = wh_id
+            self.db.add(
+                StockMovement(
+                    org_id=org_id,
+                    product_id=item.product_id,
+                    warehouse_id=wh_id,
+                    type=StockMovementTypeEnum.IN,
+                    quantity=item.quantity,
+                    reference=pr.request_number,
+                    notes=f"Goods received for {pr.request_number}",
+                    created_by=user_id,
+                )
+            )
+
+        pr.status = PurchaseRequestStatusEnum.RECEIVED
+        pr.received_by = user_id
+        pr.received_at = self._now()
+
+        self.db.flush()
+        self.audit.log(
+            org_id,
+            AuditLogCreate(
+                actor_id=user_id,
+                action="RECEIVE",
                 entity="PurchaseRequest",
                 entity_id=str(pr.id),
                 before=before,

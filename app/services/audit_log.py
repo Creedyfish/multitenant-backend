@@ -59,7 +59,7 @@ class AuditService:
         if end_date:
             q = q.where(AuditLog.timestamp <= end_date)
 
-        q = q.order_by(AuditLog.timestamp.desc()).offset(skip).limit(limit)
+        q = q.order_by(AuditLog.timestamp.desc()).offset(skip).limit(limit + 1)
         return list(self.db.execute(q).scalars().all())
 
     def get_by_id(self, org_id: uuid.UUID, audit_id: uuid.UUID) -> AuditLog:

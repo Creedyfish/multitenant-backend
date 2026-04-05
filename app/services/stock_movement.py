@@ -13,6 +13,7 @@ from app.schemas.audit_log import AuditLogCreate
 from app.schemas.stock_movement import (
     StockAdjustmentCreate,
     StockInCreate,
+    StockLevelDetailOut,
     StockLevelOut,
     StockOutCreate,
     StockTransferCreate,
@@ -400,6 +401,64 @@ class StockService:
                 product_id=row.product_id,
                 warehouse_id=row.warehouse_id,
                 current_stock=int(row.current_stock),
+            )
+            for row in rows
+        ]
+
+    def get_stock_levels_detail(
+        self,
+        org_id: uuid.UUID,
+        warehouse_id: uuid.UUID | None = None,
+        product_id: uuid.UUID | None = None,
+    ) -> list[StockLevelDetailOut]:
+        signed_qty = case(
+            (
+                StockMovement.type.in_(
+                    [
+                        StockMovementTypeEnum.IN,
+                        StockMovementTypeEnum.TRANSFER_IN,
+                        StockMovementTypeEnum.ADJUSTMENT,
+                    ]
+                ),
+                StockMovement.quantity,
+            ),
+            else_=-StockMovement.quantity,
+        )
+
+        q = (
+            select(
+                StockMovement.product_id,
+                StockMovement.warehouse_id,
+                func.sum(signed_qty).label("current_stock"),
+                Product.name.label("product_name"),
+                Product.sku.label("product_sku"),
+                Product.min_stock_level.label("min_stock_level"),
+            )
+            .join(Product, Product.id == StockMovement.product_id)
+            .where(StockMovement.org_id == org_id)
+            .group_by(
+                StockMovement.product_id,
+                StockMovement.warehouse_id,
+                Product.name,
+                Product.sku,
+                Product.min_stock_level,
+            )
+        )
+
+        if warehouse_id:
+            q = q.where(StockMovement.warehouse_id == warehouse_id)
+        if product_id:
+            q = q.where(StockMovement.product_id == product_id)
+
+        rows = self.db.execute(q).all()
+        return [
+            StockLevelDetailOut(
+                product_id=row.product_id,
+                warehouse_id=row.warehouse_id,
+                current_stock=int(row.current_stock),
+                product_name=row.product_name,
+                product_sku=row.product_sku,
+                min_stock_level=row.min_stock_level,
             )
             for row in rows
         ]

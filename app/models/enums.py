@@ -21,3 +21,4 @@ class PurchaseRequestStatusEnum(str, enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     ORDERED = "ORDERED"
+    RECEIVED = "RECEIVED"
