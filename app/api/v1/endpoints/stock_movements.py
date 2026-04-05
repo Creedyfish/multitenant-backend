@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.stock_movement import (
     StockAdjustmentCreate,
     StockInCreate,
+    StockLevelDetailOut,
     StockLevelOut,
     StockMovementOut,
     StockOutCreate,
@@ -180,13 +181,21 @@ def get_ledger(
     )
 
 
-@router.get("/levels", response_model=list[StockLevelOut])
+@router.get("/levels", response_model=list[StockLevelOut] | list[StockLevelDetailOut])
 def get_stock_levels(
     org_id: OrgID,
     service: StockService = Depends(get_service),
     product_id: uuid.UUID | None = Query(None),
     warehouse_id: uuid.UUID | None = Query(None),
+    include_product: bool = Query(False),
 ):
+
+    if include_product:
+        return service.get_stock_levels_detail(
+            org_id=org_id,
+            product_id=product_id,
+            warehouse_id=warehouse_id,
+        )
     return service.get_stock_levels(
         org_id=org_id,
         product_id=product_id,

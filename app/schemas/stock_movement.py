@@ -71,3 +71,12 @@ class StockLevelOut(BaseModel):
     product_id: uuid.UUID
     warehouse_id: uuid.UUID
     current_stock: int
+
+
+class StockLevelDetailOut(BaseModel):
+    product_id: uuid.UUID
+    warehouse_id: uuid.UUID
+    current_stock: int
+    product_name: str
+    product_sku: str
+    min_stock_level: int
