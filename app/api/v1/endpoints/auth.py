@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 # from fastapi.security import OAuth2PasswordBearer
 from app.core import verify_password
+from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.database import DB
 from app.middleware.tenant import get_tenant
@@ -25,6 +26,17 @@ def authenticate_user(db: DB, username: str, password: str):
     if not verify_password(password, user.password_hash):
         return False
     return user
+
+
+def _cookie_kwargs() -> dict:
+    """Cookie security settings — relaxed in testing, strict in production."""
+    is_production = settings.ENV not in ("development", "testing")
+    return {
+        "httponly": True,
+        "samesite": "none" if is_production else "lax",
+        "secure": is_production,
+        "max_age": 60 * 60 * 24 * 7,
+    }
 
 
 @router.post("/token")
@@ -52,14 +64,7 @@ async def login_for_access_token(
 
     token = Token(access_token=access_token, token_type="bearer")
     response = JSONResponse(content=token.model_dump())
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        samesite="none",
-        secure=True,
-        max_age=60 * 60 * 24 * 7,  # 7 days
-    )
+    response.set_cookie(key="refresh_token", value=refresh_token, **_cookie_kwargs())
     return response
 
 
@@ -77,14 +82,7 @@ async def refresh_access_token(request: Request, db: DB) -> JSONResponse:
     token = Token(access_token=access_token, token_type="bearer")
     response = JSONResponse(content=token.model_dump())
     # Set the new rotated refresh token as the cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        samesite="none",
-        secure=True,
-        max_age=60 * 60 * 24 * 7,
-    )
+    response.set_cookie(key="refresh_token", value=refresh_token, **_cookie_kwargs())
     return response
 
 
@@ -96,11 +94,13 @@ async def logout(request: Request, db: DB) -> JSONResponse:
         try:
             revoke_refresh_token(db, refresh_token)
         except Exception:
-            pass  # Cookie still gets cleared regardless
+            pass
 
     logger.info("User logged out")
     response = JSONResponse(
         content={"success": True, "message": "Logged out successfully"}
     )
-    response.delete_cookie(key="refresh_token", httponly=True)
+    delete_kwargs = _cookie_kwargs()
+    delete_kwargs.pop("max_age")
+    response.delete_cookie(key="refresh_token", **delete_kwargs)
     return response
