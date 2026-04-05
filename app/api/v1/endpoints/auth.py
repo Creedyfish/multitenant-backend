@@ -82,7 +82,9 @@ async def refresh_access_token(request: Request, db: DB) -> JSONResponse:
     token = Token(access_token=access_token, token_type="bearer")
     response = JSONResponse(content=token.model_dump())
     # Set the new rotated refresh token as the cookie
-    response.set_cookie(key="refresh_token", value=refresh_token, **_cookie_kwargs())
+    response.set_cookie(
+        key="refresh_token", value=new_refresh_token, **_cookie_kwargs()
+    )
     return response
 
 
